@@ -1,3 +1,3 @@
 
-var c = new CPU();
-c.start();
+const processingUnit = new CPU();
+processingUnit.start();
