@@ -241,7 +241,7 @@ class CPU {
   getHL() {
     return this.HL;
   }
-  toUsnigned16bit(MSBValue, LSBValue) {
+  toUnsigned16Bit(LSBValue, MSBValue) {
     /*
       MostSignificantValue = 0x20;
       LeastSignificantValue = 0xC5;
