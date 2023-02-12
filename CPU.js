@@ -86,7 +86,7 @@ class CPU {
   //and finally, instruction execution. 
   execute(instruction) {
     this.setCPUCycle(this.getCPUCycle() + 8);
-    InstructionSet.executeInstruction(this,instruction);
+    InstructionSet.executeInstruction(this, instruction);
   }
   wait() {
     while (this.getCPUCycle() > 0) {
@@ -223,22 +223,31 @@ class CPU {
   }
 
   //Register  BC, DE and HL
-  setBC(value){
+  setBC(value) {
     this.BC = value;
   }
-  getBC(){
+  getBC() {
     return this.BC;
   }
-  setDE(value){
+  setDE(value) {
     this.DE = value;
   }
-  getDE(){
+  getDE() {
     return this.DE;
   }
-  setHL(value){
+  setHL(value) {
     this.HL = value;
   }
-  getHL(){
+  getHL() {
     return this.HL;
+  }
+  toUsnigned16bit(MSBValue, LSBValue) {
+    /*
+      MostSignificantValue = 0x20;
+      LeastSignificantValue = 0xC5;
+      result = 0x20C5 
+    */
+    return (MSBValue << 8) | LSBValue;
+
   }
 }

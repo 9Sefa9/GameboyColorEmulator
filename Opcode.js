@@ -1,9 +1,10 @@
 class Opcode {
-    constructor(instruction, parameters, opcode, opcodeCycle, logic) {
+    constructor(instruction, parameters, opcode, opcodeCycle, len, logic) {
         this.instruction = instruction;
         this.parameters = parameters;
         this.opcode = opcode;
         this.opcodeCycle = opcodeCycle;
+        this.len = len;
         this.logic = logic;
     }
     
@@ -37,6 +38,12 @@ class Opcode {
 
     setOpcodeCycle(value) {
         this.opcodeCycle = value;
+    }
+    setLen(value){
+        this.len = value;
+    }
+    getLen(){
+        return this.len;
     }
     executeOn(cpu){
         this.logic(cpu);
