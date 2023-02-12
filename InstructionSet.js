@@ -1,28 +1,41 @@
-class InstructionSet{
-    constructor(opcode){
-        this.opcode = opcode;
-        this.opcodeList = new Map();
-        this.prepareInstructions();
-       
-    }
-    //TODO - wie genau soll ich den funktionsaufruf machen ? ich bräcuhte zugänge von ausen wie memory oder register. ich kann dsas aber nicht in dieser klasse tun!
-    getInstruction(opcodeValue){
-        switch(opcodeValue){
-            case 0x30:{
-                console.log("ES KLAPPT.");
-                break;
-            }
-            default:{
-                console.log("OPCODE NOT FOUND or is undefined!",opcodeValue);
-            }
-        }
-    }
-    prepareInstructions(){
-        this.opcodeList.set(0x30, new Opcode('LD','B,n',0x30,8),{
-            
-        });
-        this.opcodeList.set(0x0E, new Opcode('LD','B,n',0x0E,8),{
+class InstructionSet extends CPU {
+    static opcodeList = new Map();
 
-        });
+    static prepareInstructions() {
+        this.opcodeList.set(0x41, new Opcode('LD', 'B,C', 0x41, 8, (cpu) => {
+           
+            const bPart = (cpu.getBC() & 0xFF00);
+            const cPart = (cpu.getBC() & 0x00FF);
+            const result = (cPart | bPart);
+            cpu.setBC(result);
+        }));
+        //TODO
+        this.opcodeList.set(0x06, new Opcode('LD', 'B,n', 0x06, 8, (cpu) => {
+            const memoryValue = cpu.memory[cpu.getPC()];
+            const result = | memoryValue
+            this.setPC(pc + 1);
+            cpu.setBC(memoryValue);
+        }));
+        this.opcodeList.set(0x46, new Opcode('LD', 'B,n', 0x46, 8, (cpu) => {
+            //const memoryValue = cpu.memory[cpu.getHL()];
+          //  this.setPC(pc + 1);
+           // cpu.setBC(memoryValue);
+        }));
+    }
+
+    //returns the instruction which can be found by opcodeValue( decode step )
+    static getInstruction(opcodeValue) {
+
+        if (!this.opcodeList.get(opcodeValue)) {
+            console.log("opcodeValuz4e ", opcodeValue);
+            throw new Error("Instruction not found.");
+        }
+        return this.opcodeList.get(opcodeValue);
+
+
+    }
+    static executeInstruction(cpu, instruction) {
+        cpu.setCPUCycle(cpu.getCPUCycle() + instruction.getOpcodeCycle());
+        instruction.executeOn(cpu);
     }
 }
