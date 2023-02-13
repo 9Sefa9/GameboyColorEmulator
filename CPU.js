@@ -2,18 +2,35 @@ class CPU {
 
   constructor() {
     //Registers
-    this.AF = 0; //Accumulator 8 bit and Flags 8 bit = 16 bit register
     this.BC = 0; //16 bit register
     this.DE = 0; //16 bit register
     this.HL = 0; //16 bit register
     this.SP = 0; //Stack Pointer
     this.PC = 0; //Program Counter
+    
+    this.AF = 0; //Accumulator 8 bit and Flags 8 bit = 16 bit register
 
-    //Flags
-    this.Z = 0;//7.th bit of this.AF 
-    this.N = 0;//6.th bit of this.AF 
-    this.H = 0;//5.th bit of this.AF 
-    this.C = 0;//4.th bit of this.AF 
+    //Flags 
+    // 7 6 5 4 3 2 1 0
+    // Z N H C 0 0 0 0
+    
+    // Zero Flag (Z):
+    // This bit is set when the result of a math operation
+    // is zero or two values match when using the CP
+    // instruction.
+    
+    // Subtract Flag (N):
+    // This bit is set if a subtraction was performed in the
+    // last math instruction.
+    
+    // Half Carry Flag (H):
+    // This bit is set if a carry occurred from the lower
+    // nibble in the last math operation.
+    
+    // Carry Flag (C):
+    // This bit is set if a carry occurred from the last
+    // math operation or if register A is the smaller value
+    // when executing the CP instruction.
 
     //Initialize all available Instructions to a Map
     InstructionSet.prepareInstructions();
@@ -153,7 +170,7 @@ class CPU {
    * @param {number} value - The value to set the register to in 0xFFFF format.
    */
   setZ(value) {
-    this.AF = (this.AF | (value & 0x80));
+    this.AF = (this.AF & ~(0x80)) | (value << 7);
   }
 
   /**
@@ -161,10 +178,7 @@ class CPU {
    * @returns The Z-flag is being returned which is either 1 or 0.
    */
   getZ() {
-    if (this.Z > 0x01) {
-      throw new Error("ERROR - Z-FLAG IS TOO LARGE!");
-    }
-    return this.Z;
+    return (this.AF & 0x80)>>7;
   }
 
   /**
@@ -172,7 +186,7 @@ class CPU {
    * @param {number} value - The value to set the flag to which could has a mask of 0xFFFF
    */
   setN(value) {
-    this.AF = (this.AF | (value & 0x40));
+    this.AF = (this.AF & ~(0x40)) | (value << 6);
   }
 
 
@@ -181,17 +195,14 @@ class CPU {
    * @returns The N-flag is being returned which is either 1 or 0.
    */
   getN() {
-    if (this.N > 0x01) {
-      throw new Error("ERROR - N-FLAG IS TOO LARGE!");
-    }
-    return this.N;
+    return (this.AF & 0x40)>>6;
   }
   /**
    * Set the H flag to the value of the 5th bit of the value parameter.
    * @param {number} value - The value to set the H flag to.
    */
   setH(value) {
-    this.AF = (this.AF | (value & 0x20));
+    this.AF = (this.AF & ~(0x20)) | (value << 5);
   }
 
   /**
@@ -199,27 +210,21 @@ class CPU {
    * @returns The H-flag is being returned which is either 1 or 0.
    */
   getH() {
-    if (this.H > 0x01) {
-      throw new Error("ERROR - H-FLAG IS TOO LARGE!");
-    }
-    return this.H;
+    return (this.AF & 0x20)>>5;
   }
   /**
    * The function sets the C flag in the AF register to the value of the 4th bit of the value parameter
    * @param {number} value - The value to set the flag to.
    */
   setC(value) {
-    this.C = (this.AF | (value & 0x10));
+    this.AF = (this.AF & ~(0x10)) | (value << 4);
   }
   /**
    * If the C-flag is greater than 1, throw an error, otherwise return the C-flag.
    * @returns The C-flag is being returned which is either 1 or 0.
    */
   getC() {
-    if (this.C > 0x01) {
-      throw new Error("ERROR - C-FLAG IS TOO LARGE!");
-    }
-    return this.C;
+    return (this.AF & 0x10)>>4;
   }
 
   //Register  BC, DE and HL
