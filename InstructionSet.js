@@ -2,49 +2,52 @@ class InstructionSet extends CPU {
     static opcodeList = new Map();
 
     static prepareInstructions() {
-        
+
         this.opcodeList.set(0x00, new Opcode('NOP', '', 0x00, 8, 1, (cpu) => {
             // Does nothing
         }));
-        
+
         //8-bit operations
-        this.opcodeList.set(0x41, new Opcode('LD', 'r,r’', 0x41, 8, 1, (cpu) => {
+        this.opcodeList.set(0x7F, new Opcode('LD', 'A,A', 0x7F, 8, 1, (cpu) => {
 
-            const bPart = (cpu.getBC() & 0xFF00);
-            const cPart = (cpu.getBC() & 0x00FF);
-            const result = (cPart | bPart);
-            cpu.setBC(result);
+            const value = cpu.memory[cpu.getA()];
+            cpu.setA(value);
         }));
-        //TODO
-        this.opcodeList.set(0x06, new Opcode('LD', 'r,n', 0x06, 16, 2, (cpu) => {
-            const n = cpu.memory[cpu.getPC()];
-            cpu.setPC(pc + 1);
-            const result = (cpu.getBC() & 0x00FF) | (n << 8)
-            cpu.setBC(result);
-        }));
-        this.opcodeList.set(0x46, new Opcode('LD', 'r,(HL)', 0x46, 16, 1, (cpu) => {
-            const memoryValue = cpu.memory[cpu.getHL()];
-            const result = (cpu.getBC() & 0x00FF) | (memoryValue << 8)
-            cpu.setBC(result);
-        }));
-        this.opcodeList.set(0x70, new Opcode('LD', '(HL),r', 0x70, 16, 1, (cpu) => {
-            //write(HL,B)
-            cpu.memory[cpu.getHL()] = ((cpu.getBC() & 0xFF00) >> 8) & 0xFF;
+        this.opcodeList.set(0x78, new Opcode('LD', 'A,B', 0x78, 8, 1, (cpu) => {
 
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+            cpu.setA(value);
         }));
-        this.opcodeList.set(0x36, new Opcode('LD', '(HL),n', 0x36, 24, 2, (cpu) => {
-            // write(HL, n)
-            const n = cpu.memory[cpu.getPC()];
-            cpu.setPC(cpu.getPC() + 1);
-            cpu.memory[cpu.getHL()] = n;
+        this.opcodeList.set(0x79, new Opcode('LD', 'A,C', 0x79, 8, 1, (cpu) => {
 
-
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+            cpu.setA(value);
         }));
+        this.opcodeList.set(0x7A, new Opcode('LD', 'A,D', 0x7A, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+            cpu.setA(value);
+        }));
+        this.opcodeList.set(0x7B, new Opcode('LD', 'A,E', 0x7B, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+            cpu.setA(value);
+        }));
+        this.opcodeList.set(0x7C, new Opcode('LD', 'A,H', 0x7C, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+            cpu.setA(value);
+        }));
+        this.opcodeList.set(0x7D, new Opcode('LD', 'A,L', 0x7D, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+            cpu.setA(value);
+        }));
+
         this.opcodeList.set(0x0A, new Opcode('LD', 'A,(BC)', 0x0A, 16, 1, (cpu) => {
             // A = read(BC)
             const memoryValue = cpu.memory[cpu.getBC()];
             cpu.setA(memoryValue);
-
 
         }));
         this.opcodeList.set(0x1A, new Opcode('LD', 'A,(DE)', 0x1A, 16, 1, (cpu) => {
@@ -52,17 +55,14 @@ class InstructionSet extends CPU {
             const memoryValue = cpu.memory[cpu.getDE()];
             cpu.setA(memoryValue);
 
+        }));
 
-        }));
-        this.opcodeList.set(0x02, new Opcode('LD', '(BC),A', 0x02, 16, 1, (cpu) => {
-            // write(BC, A)
-            cpu.memory[cpu.getBC()] = cpu.getA();
-        }));
-        this.opcodeList.set(0x12, new Opcode('LD', '(DE),A', 0x12, 16, 1, (cpu) => {
-            // write(DE, A)
+        this.opcodeList.set(0x7E, new Opcode('LD', 'A,(HL)', 0x7E, 8, 1, (cpu) => {
 
-            cpu.memory[cpu.getDE()] = cpu.getA();
+            const value = cpu.memory[(cpu.getHL())];
+            cpu.setA(value);
         }));
+
         this.opcodeList.set(0xFA, new Opcode('LD', 'A,(nn)', 0xFA, 32, 3, (cpu) => {
             // nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
             //A = read(nn)
@@ -76,6 +76,380 @@ class InstructionSet extends CPU {
             const memoryData = cpu.memory[nn];
             cpu.setA(memoryData);
         }));
+        this.opcodeList.set(0x3E, new Opcode('LD', 'A,#', 0x3E, 32, 3, (cpu) => {
+            //I think that's an immediate load. It takes the next byte (the one immediately after 3E in the ROM) 
+            //and stores that in A. So if you saw 3E F2 ..., F2 would be stored in A.
+            console.log("UNSURE OPERATION HERE! - opcode ");
+            cpu.setPC(cpu.getPC() + 1);
+            const n = cpu.memory[cpu.getPC()];
+            const memoryData = cpu.memory[n];
+            cpu.setA(memoryData);
+        }));
+
+        Continue with Page 69
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        this.opcodeList.set(0x40, new Opcode('LD', 'B,B', 0x40, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+            cpu.setBC((cpu.getBC() & 0x00FF) | value << 8);
+        }));
+        this.opcodeList.set(0x41, new Opcode('LD', 'B,C', 0x41, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+
+            cpu.setBC((cpu.getBC() & 0x00FF) | value << 8);
+        }));
+        this.opcodeList.set(0x42, new Opcode('LD', 'B,D', 0x42, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+
+            cpu.setBC((cpu.getBC() & 0x00FF) | value << 8);
+        }));
+        this.opcodeList.set(0x43, new Opcode('LD', 'B,E', 0x43, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+
+            cpu.setBC((cpu.getBC() & 0x00FF) | value << 8);
+        }));
+        this.opcodeList.set(0x44, new Opcode('LD', 'B,H', 0x44, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+
+            cpu.setBC((cpu.getBC() & 0x00FF) | value << 8);
+        }));
+        this.opcodeList.set(0x45, new Opcode('LD', 'B,L', 0x45, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+
+            cpu.setBC((cpu.getBC() & 0x00FF) | value << 8);
+        }));
+        this.opcodeList.set(0x46, new Opcode('LD', 'B,(HL)', 0x46, 8, 1, (cpu) => {
+
+            const value = cpu.memory[cpu.getHL()];
+
+            cpu.setBC((cpu.getBC() & 0x00FF) | value << 8);
+        }));
+
+
+        this.opcodeList.set(0x40, new Opcode('LD', 'C,B', 0x40, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+
+            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+        }));
+        this.opcodeList.set(0x41, new Opcode('LD', 'C,C', 0x41, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+        }));
+        this.opcodeList.set(0x42, new Opcode('LD', 'C,D', 0x42, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+        }));
+        this.opcodeList.set(0x43, new Opcode('LD', 'C,E', 0x43, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+        }));
+        this.opcodeList.set(0x44, new Opcode('LD', 'C,H', 0x44, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+        }));
+        this.opcodeList.set(0x45, new Opcode('LD', 'C,L', 0x45, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+        }));
+        this.opcodeList.set(0x46, new Opcode('LD', 'C,(HL)', 0x46, 8, 1, (cpu) => {
+
+            const value = cpu.memory[cpu.getHL()];
+            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+        }));
+
+
+
+
+        this.opcodeList.set(0x50, new Opcode('LD', 'D,B', 0x50, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+
+            cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x51, new Opcode('LD', 'D,C', 0x51, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+            cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x52, new Opcode('LD', 'D,D', 0x52, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+            cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x53, new Opcode('LD', 'D,E', 0x53, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+            cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x54, new Opcode('LD', 'D,H', 0x54, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+            cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x55, new Opcode('LD', 'D,L', 0x55, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+            cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x56, new Opcode('LD', 'D,(HL)', 0x56, 8, 1, (cpu) => {
+
+            const value = cpu.memory[cpu.getHL()];
+            cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
+        }));
+
+
+
+        this.opcodeList.set(0x58, new Opcode('LD', 'E,B', 0x58, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+
+            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x59, new Opcode('LD', 'E,C', 0x59, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x5A, new Opcode('LD', 'E,D', 0x5A, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x5B, new Opcode('LD', 'E,E', 0x5B, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x5C, new Opcode('LD', 'E,H', 0x5C, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x5D, new Opcode('LD', 'E,L', 0x5D, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x5E, new Opcode('LD', 'E,(HL)', 0x5E, 8, 1, (cpu) => {
+
+            const value = cpu.memory[cpu.getHL()];
+            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+        }));
+
+
+
+        this.opcodeList.set(0x60, new Opcode('LD', 'H,B', 0x60, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x61, new Opcode('LD', 'H,C', 0x61, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x62, new Opcode('LD', 'H,D', 0x62, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x63, new Opcode('LD', 'H,E', 0x63, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x64, new Opcode('LD', 'H,H', 0x64, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x65, new Opcode('LD', 'H,L', 0x65, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
+        }));
+        this.opcodeList.set(0x66, new Opcode('LD', 'H,(HL)', 0x66, 8, 1, (cpu) => {
+
+            const value = cpu.memory[cpu.getHL()];
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
+        }));
+
+
+
+
+        this.opcodeList.set(0x68, new Opcode('LD', 'L,B', 0x68, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+
+            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x69, new Opcode('LD', 'L,C', 0x69, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x6A, new Opcode('LD', 'L,D', 0x6A, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x6B, new Opcode('LD', 'L,E', 0x6B, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x6C, new Opcode('LD', 'L,H', 0x6C, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x6D, new Opcode('LD', 'L,L', 0x6D, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+        }));
+        this.opcodeList.set(0x6E, new Opcode('LD', 'L,(HL)', 0x6E, 8, 1, (cpu) => {
+
+            const value = cpu.memory[cpu.getHL()];
+            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+        }));
+
+
+
+        this.opcodeList.set(0x70, new Opcode('LD', '(HL),B', 0x70, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getBC() & 0xFF00) >> 8)];
+
+            cpu.setHL(value);
+        }));
+        this.opcodeList.set(0x71, new Opcode('LD', '(HL),C', 0x71, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getBC() & 0xFF)];
+            cpu.setHL(value);
+        }));
+        this.opcodeList.set(0x72, new Opcode('LD', '(HL),D', 0x72, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getDE() & 0xFF00) >> 8)];
+            cpu.setHL(value);
+        }));
+        this.opcodeList.set(0x73, new Opcode('LD', '(HL),E', 0x73, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getDE() & 0xFF)];
+            cpu.setHL(value);
+        }));
+        this.opcodeList.set(0x74, new Opcode('LD', '(HL),H', 0x74, 8, 1, (cpu) => {
+
+            const value = cpu.memory[((cpu.getHL() & 0xFF00) >> 8)];
+            cpu.setHL(value);
+        }));
+        this.opcodeList.set(0x75, new Opcode('LD', '(HL),L', 0x75, 8, 1, (cpu) => {
+
+            const value = cpu.memory[(cpu.getHL() & 0xFF)];
+            cpu.setHL(value);
+        }));
+        this.opcodeList.set(0x36, new Opcode('LD', '(HL),n', 0x36, 24, 2, (cpu) => {
+            // write(HL, n)
+            const n = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1);
+            cpu.memory[cpu.getHL()] = n;
+        }));
+
+        //CONTINUE HERE!
+
+        this.opcodeList.set(0x06, new Opcode('LD', 'B,n', 0x06, 16, 2, (cpu) => {
+            const n = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1);
+            const result = (cpu.getBC() & 0x00FF) | (n << 8)
+            cpu.setBC(result);
+        }));
+        this.opcodeList.set(0x0E, new Opcode('LD', 'C,n', 0x0E, 16, 2, (cpu) => {
+            const n = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1);
+            const result = (cpu.getBC() & 0xFF00) | n
+            cpu.setBC(result);
+        }));
+        this.opcodeList.set(0x16, new Opcode('LD', 'D,n', 0x16, 16, 2, (cpu) => {
+            const n = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1);
+            const result = (cpu.getDE() & 0x00FF) | (n << 8)
+            cpu.setDE(result);
+        }));
+        this.opcodeList.set(0x1E, new Opcode('LD', 'E,n', 0x1E, 16, 2, (cpu) => {
+            const n = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1);
+            const result = (cpu.getDE() & 0xFF00) | n;
+            cpu.setDE(result);
+        }));
+        this.opcodeList.set(0x26, new Opcode('LD', 'H,n', 0x26, 16, 2, (cpu) => {
+            const n = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1);
+            const result = (cpu.getHL() & 0x00FF) | n << 8;
+            cpu.setHL(result);
+        }));
+        this.opcodeList.set(0x2E, new Opcode('LD', 'L,n', 0x2E, 16, 2, (cpu) => {
+            const n = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1);
+            const result = (cpu.getHL() & 0xFF00) | n;
+            cpu.setHL(result);
+        }));
+        this.opcodeList.set(0x46, new Opcode('LD', 'r,(HL)', 0x46, 16, 1, (cpu) => {
+            const memoryValue = cpu.memory[cpu.getHL()];
+            const result = (cpu.getBC() & 0x00FF) | (memoryValue << 8)
+            cpu.setBC(result);
+        }));
+
+
+        this.opcodeList.set(0x02, new Opcode('LD', '(BC),A', 0x02, 16, 1, (cpu) => {
+            // write(BC, A)
+            cpu.memory[cpu.getBC()] = cpu.getA();
+        }));
+        this.opcodeList.set(0x12, new Opcode('LD', '(DE),A', 0x12, 16, 1, (cpu) => {
+            // write(DE, A)
+
+            cpu.memory[cpu.getDE()] = cpu.getA();
+        }));
+
         this.opcodeList.set(0xEA, new Opcode('LD', '(nn),A', 0xEA, 32, 3, (cpu) => {
             // nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
             //A = read(nn)
@@ -1233,6 +1607,623 @@ class InstructionSet extends CPU {
             cpu.setH(1);
 
         }));
+        this.opcodeList.set(0xC3, new Opcode('JP', 'n', 0xC3, 32, 3, (cpu) => {
+            /* nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
+               PC = nn
+            */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xE9, new Opcode('JP', 'HL', 0xE9, 8, 1, (cpu) => {
+            /* PC = HL
+            */
+            cpu.setPC(cpu.getHL());
+        }));
+        this.opcodeList.set(0xC2, new Opcode('JP', 'nz,nn', 0xC2, 24, 3, (cpu) => {
+            /*  Jump to address n if following condition is true:
+                cc = NZ, Jump if Z flag is reset.
+                cc = Z, Jump if Z flag is set.
+                cc = NC, Jump if C flag is reset.
+                cc = C, Jump if C flag is set.
+
+            */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+
+            if (cpu.getZ() === 0) {
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xCA, new Opcode('JP', 'z,nn', 0xCA, 24, 3, (cpu) => {
+            /*  Jump to address n if following condition is true:
+                cc = NZ, Jump if Z flag is reset.
+                cc = Z, Jump if Z flag is set.
+                cc = NC, Jump if C flag is reset.
+                cc = C, Jump if C flag is set.
+
+            */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+
+            if (cpu.getZ() === 1) {
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xD2, new Opcode('JP', 'nc,nn', 0xD2, 24, 3, (cpu) => {
+            /*  Jump to address n if following condition is true:
+                cc = NZ, Jump if Z flag is reset.
+                cc = Z, Jump if Z flag is set.
+                cc = NC, Jump if C flag is reset.
+                cc = C, Jump if C flag is set.
+
+            */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+
+            if (cpu.getC() === 0) {
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xDA, new Opcode('JP', 'c,nn', 0xDA, 24, 3, (cpu) => {
+            /*  e = signed_8(read(PC++))
+                PC = PC + e
+
+            */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+
+            if (cpu.getC() === 1) {
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0x18, new Opcode('JR', 'cc,e', 0x18, 16, 2, (cpu) => {
+            /*  e = signed_8(read(PC++))
+                if F.check_condition(cc):
+                PC = PC + e
+
+            */
+            let e = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1)
+
+            // convert the unsigned 8-bit value to a signed 8-bit value
+            if (e & 0x80) {
+                e = -(~e + 1);
+            }
+
+            cpu.setPC(cpu.getPC() + e);
+        }));
+        this.opcodeList.set(0x20, new Opcode('JR', 'nz,e', 0x20, 16, 2, (cpu) => {
+            /*  e = signed_8(read(PC++))
+                if F.check_condition(cc):
+                PC = PC + e
+
+            */
+            let e = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1)
+
+            // convert the unsigned 8-bit value to a signed 8-bit value
+            if (e & 0x80) {
+                e = -(~e + 1);
+            }
+            if (cpu.getZ() === 0) {
+                cpu.setPC(cpu.getPC() + e);
+            }
+        }));
+        this.opcodeList.set(0x28, new Opcode('JR', 'z,e', 0x28, 16, 2, (cpu) => {
+            /*  e = signed_8(read(PC++))
+                if F.check_condition(cc):
+                PC = PC + e
+
+            */
+            let e = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1)
+
+            // convert the unsigned 8-bit value to a signed 8-bit value
+            if (e & 0x80) {
+                e = -(~e + 1);
+            }
+            if (cpu.getZ() === 1) {
+                cpu.setPC(cpu.getPC() + e);
+            }
+        }));
+        this.opcodeList.set(0x30, new Opcode('JR', 'nc,e', 0x30, 16, 2, (cpu) => {
+            /*  e = signed_8(read(PC++))
+                if F.check_condition(cc):
+                PC = PC + e
+
+            */
+            let e = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1)
+
+            // convert the unsigned 8-bit value to a signed 8-bit value
+            if (e & 0x80) {
+                e = -(~e + 1);
+            }
+
+            if (cpu.getC() === 0) {
+                cpu.setPC(cpu.getPC() + e);
+            }
+        }));
+        this.opcodeList.set(0x38, new Opcode('JR', 'c,e', 0x38, 16, 2, (cpu) => {
+            /*  e = signed_8(read(PC++))
+                if F.check_condition(cc):
+                PC = PC + e
+
+            */
+            let e = cpu.memory[cpu.getPC()];
+            cpu.setPC(cpu.getPC() + 1)
+
+            // convert the unsigned 8-bit value to a signed 8-bit value
+            if (e & 0x80) {
+                e = -(~e + 1);
+            }
+
+            if (cpu.getC() === 1) {
+                cpu.setPC(cpu.getPC() + e);
+            }
+        }));
+        this.opcodeList.set(0xCD, new Opcode('CALL', 'nn', 0xCD, 48, 3, (cpu) => {
+            /*  nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = nn
+            */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            cpu.setPC(finalValue);
+
+        }));
+
+
+        this.opcodeList.set(0xC4, new Opcode('CALL', 'nz,nn', 0xC4, 24, 3, (cpu) => {
+            /*  nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
+                if F.check_condition(cc):
+                    SP--
+                    write(SP--, msb(PC))
+                    write(SP, lsb(PC))
+                    PC = nn
+            */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            if (cpu.getZ() === 0) {
+
+                cpu.setCPUCycle(cpu.getCPUCycle() + 48);
+                cpu.setSP(cpu.getSP() - 1);
+
+                cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+
+                cpu.setSP(cpu.getSP() - 1);
+                cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xCC, new Opcode('CALL', 'z,nn', 0xCC, 24, 3, (cpu) => {
+            /*  nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
+               if F.check_condition(cc):
+                   SP--
+                   write(SP--, msb(PC))
+                   write(SP, lsb(PC))
+                   PC = nn
+           */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            if (cpu.getZ() === 1) {
+
+                cpu.setCPUCycle(cpu.getCPUCycle() + 48);
+                cpu.setSP(cpu.getSP() - 1);
+
+                cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+
+                cpu.setSP(cpu.getSP() - 1);
+                cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xD4, new Opcode('CALL', 'nc,nn', 0xD4, 24, 3, (cpu) => {
+            /*  nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
+              if F.check_condition(cc):
+                  SP--
+                  write(SP--, msb(PC))
+                  write(SP, lsb(PC))
+                  PC = nn
+          */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            if (cpu.getC() === 0) {
+
+                cpu.setCPUCycle(cpu.getCPUCycle() + 48);
+                cpu.setSP(cpu.getSP() - 1);
+
+                cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+
+                cpu.setSP(cpu.getSP() - 1);
+                cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xDC, new Opcode('CALL', 'c, nn', 0xDC, 24, 3, (cpu) => {
+            /*  nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
+              if F.check_condition(cc):
+                  SP--
+                  write(SP--, msb(PC))
+                  write(SP, lsb(PC))
+                  PC = nn
+          */
+            const lsbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const msbValue = cpu.getPC();
+            cpu.setPC(cpu.getPC() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            if (cpu.getC() === 1) {
+
+                cpu.setCPUCycle(cpu.getCPUCycle() + 48);
+                cpu.setSP(cpu.getSP() - 1);
+
+                cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+
+                cpu.setSP(cpu.getSP() - 1);
+                cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+                cpu.setPC(finalValue);
+            }
+
+        }));
+
+        this.opcodeList.set(0xC9, new Opcode('RET', '', 0xC9, 32, 1, (cpu) => {
+            /* PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
+          */
+            const lsbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const msbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            cpu.setPC(finalValue);
+
+        }));
+
+        this.opcodeList.set(0xC0, new Opcode('RET', 'nz', 0xC0, 16, 1, (cpu) => {
+            /* if F.check_condition(cc):
+                PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
+          */
+            const lsbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const msbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+
+            if (cpu.getZ() === 0) {
+                cpu.setCPUCycle(cpu.getCPUCycle() + 40);
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xC8, new Opcode('RET', 'z', 0xC8, 16, 1, (cpu) => {
+            /* if F.check_condition(cc):
+                PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
+          */
+            const lsbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const msbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            if (cpu.getZ() === 1) {
+                cpu.setCPUCycle(cpu.getCPUCycle() + 40);
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xD0, new Opcode('RET', 'nc', 0xD0, 16, 1, (cpu) => {
+            /* if F.check_condition(cc):
+                PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
+
+          */
+            const lsbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const msbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            if (cpu.getC() === 0) {
+                cpu.setCPUCycle(cpu.getCPUCycle() + 40);
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xD8, new Opcode('RET', 'c', 0xD8, 16, 1, (cpu) => {
+            /* if F.check_condition(cc):
+                PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
+
+          */
+            const lsbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const msbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+            if (cpu.getC() === 1) {
+                cpu.setCPUCycle(cpu.getCPUCycle() + 40);
+                cpu.setPC(finalValue);
+            }
+
+        }));
+        this.opcodeList.set(0xD9, new Opcode('RST', 'n', 0xD9, 32, 1, (cpu) => {
+            /* if F.check_condition(cc):
+                PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
+
+          */
+            const lsbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const msbValue = cpu.getSP();
+            cpu.setSP(cpu.getSP() + 1)
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
+
+            cpu.setPC(finalValue);
+            cpu.setIme(1);
+
+        }));
+        this.opcodeList.set(0xC7, new Opcode('RETI', '00H', 0xC7, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x00;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xCF, new Opcode('RETI', '08H', 0xCF, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x08;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xD7, new Opcode('RETI', '10H', 0xD7, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x10;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xDF, new Opcode('RETI', '18H', 0xDF, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x18;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xE7, new Opcode('RETI', '20H', 0xE7, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x00;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xEF, new Opcode('RETI', '28H', 0xEF, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x28;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xF7, new Opcode('RETI', '30H', 0xF7, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x30;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xFF, new Opcode('RETI', '38H', 0xFF, 32, 1, (cpu) => {
+            /* n = rst_address(opcode)
+                SP--
+                write(SP--, msb(PC))
+                write(SP, lsb(PC))
+                PC = unsigned_16(lsb=n, msb=0x00)
+          */
+            const n = 0x38;
+            cpu.setSP(cpu.getSP() - 1);
+
+            //msb
+            cpu.memory[cpu.getSP()] = ((cpu.getPC() & 0xFF00) >> 8);
+            cpu.setSP(cpu.getSP() - 1);
+
+            //lsb
+            cpu.memory[cpu.getSP()] = (cpu.getPC() & 0xFF);
+
+            const msbValue = 0x00;
+            const finalValue = cpu.toUnsigned16Bit(n, msbValue);
+
+            cpu.setPC(finalValue);
+        }));
+        this.opcodeList.set(0xF3, new Opcode('DI', '', 0xF3, 8, 1, (cpu) => {
+            /* IME = 0*/
+            cpu.setIme(0);
+        }));
+        this.opcodeList.set(0xF3, new Opcode('DI', '', 0xF3, 8, 1, (cpu) => {
+            /*IME_scheduled = true*/
+            cpu.setImeScheduled(1);
+        }));
+
     }
 
     //returns the instruction which can be found by opcodeValue( decode step )

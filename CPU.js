@@ -5,8 +5,8 @@ class CPU {
     this.BC = 0; //16 bit register
     this.DE = 0; //16 bit register
     this.HL = 0; //16 bit register
-    this.SP = 0; //Stack Pointer
-    this.PC = 0; //Program Counter
+    this.SP = 0; //16 bit register - Stack Pointer
+    this.PC = 0; //16 bit register - Program Counter
     
     this.AF = 0; //Accumulator 8 bit and Flags 8 bit = 16 bit register
 
@@ -45,9 +45,11 @@ class CPU {
     //Cycle which is 8 since 1 Machine cycle represents 8 cycle in GameBoy Color
     this.cycle = 0;
 
+    //Interrupt handling ( To do )
+    this.ime = 0;
+    this.imeScheduled = 0;
     //DUMMY DATAS
     this.memory = new Array(1500).fill(Math.random() * window.performance.now());
-    this.TEST = "LOOL";
   }
   start() {
     this.reset();
@@ -110,7 +112,13 @@ class CPU {
       this.setCPUCycle(this.getCPUCycle() - 1);
     }
   }
-
+  //Interrupts
+  setIme(value){
+    this.ime = value;
+  }
+  setImeScheduled(value){
+    this.imeScheduled = value;
+  }
   //Cycle 
   setCPUCycle(value) {
     this.cycle = value;
