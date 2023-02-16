@@ -1096,7 +1096,7 @@ class InstructionSet extends CPU {
                 flags.C = 1 if carry_per_bit[7] else 0
             */
             const value = cpu.memory[cpu.getPC()];
-            cpu.setPC(cpu.getPC()+1);
+            cpu.setPC(cpu.getPC() + 1);
 
             cpu.setSP(value);
 
@@ -2376,7 +2376,7 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = cpu.getA()  + 1;
+            const result = cpu.getA() + 1;
             const carryPerBit = cpu.getA() + 1;
             cpu.setA(result);
 
@@ -2433,9 +2433,9 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = ((cpu.getBC() & 0xFF) ) + 1;
-            const carryPerBit = ((cpu.getBC() & 0xFF) ) + 1;
-            const C =  (cpu.getBC() & 0xFF00) | (result >> 8);
+            const result = ((cpu.getBC() & 0xFF)) + 1;
+            const carryPerBit = ((cpu.getBC() & 0xFF)) + 1;
+            const C = (cpu.getBC() & 0xFF00) | (result >> 8);
             cpu.setBC(C);
 
             if (result == 0) {
@@ -2462,9 +2462,9 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = ((cpu.getDE() & 0xFF00) >> 8 ) + 1;
+            const result = ((cpu.getDE() & 0xFF00) >> 8) + 1;
             const carryPerBit = ((cpu.getDE() & 0xFF00) >> 8) + 1;
-            const D =  (cpu.getDE() & 0x00FF) | (result << 8);
+            const D = (cpu.getDE() & 0x00FF) | (result << 8);
             cpu.setDE(D);
 
             if (result == 0) {
@@ -2491,9 +2491,9 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = ((cpu.getDE() & 0xFF) ) + 1;
-            const carryPerBit = ((cpu.getDE() & 0xFF) ) + 1;
-            const E =  (cpu.getDE() & 0xFF00) | (result >> 8);
+            const result = ((cpu.getDE() & 0xFF)) + 1;
+            const carryPerBit = ((cpu.getDE() & 0xFF)) + 1;
+            const E = (cpu.getDE() & 0xFF00) | (result >> 8);
             cpu.setDE(E);
 
             if (result == 0) {
@@ -2520,9 +2520,9 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = ((cpu.getHL() & 0xFF00) >> 8 ) + 1;
+            const result = ((cpu.getHL() & 0xFF00) >> 8) + 1;
             const carryPerBit = ((cpu.getHL() & 0xFF00) >> 8) + 1;
-            const H =  (cpu.getHL() & 0x00FF) | (result << 8);
+            const H = (cpu.getHL() & 0x00FF) | (result << 8);
             cpu.setHL(H);
 
             if (result == 0) {
@@ -2549,9 +2549,9 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = ((cpu.getHL() & 0xFF) ) + 1;
-            const carryPerBit = ((cpu.getHL() & 0xFF) ) + 1;
-            const L =  (cpu.getHL() & 0xFF00) | (result >> 8);
+            const result = ((cpu.getHL() & 0xFF)) + 1;
+            const carryPerBit = ((cpu.getHL() & 0xFF)) + 1;
+            const L = (cpu.getHL() & 0xFF00) | (result >> 8);
             cpu.setHL(L);
 
             if (result == 0) {
@@ -2608,7 +2608,7 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = cpu.getBC()  + 1;
+            const result = cpu.getBC() + 1;
             const carryPerBit = cpu.getBC() + 1;
             cpu.setBC(result);
 
@@ -2636,7 +2636,7 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = cpu.getDE()  + 1;
+            const result = cpu.getDE() + 1;
             const carryPerBit = cpu.getDE() + 1;
             cpu.setDE(result);
 
@@ -2664,7 +2664,7 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = cpu.getHL()  + 1;
+            const result = cpu.getHL() + 1;
             const carryPerBit = cpu.getHL() + 1;
             cpu.setHL(result);
 
@@ -2692,7 +2692,7 @@ class InstructionSet extends CPU {
                 flags.H = 1 if carry_per_bit[3] else 0
 
             */
-            const result = cpu.getSP()  + 1;
+            const result = cpu.getSP() + 1;
             const carryPerBit = cpu.getSP() + 1;
             cpu.setSP(result);
 
@@ -2775,7 +2775,7 @@ class InstructionSet extends CPU {
             */
             const result = ((cpu.getBC() & 0xFF)) - 1;
             const carryPerBit = ((cpu.getBC() & 0xFF)) - 1;
-            const C =  (cpu.getBC() & 0xFF00) | (result >> 8)
+            const C = (cpu.getBC() & 0xFF00) | (result >> 8)
             cput.setBC(C);
 
             if (result == 0) {
@@ -2829,7 +2829,7 @@ class InstructionSet extends CPU {
             */
             const result = ((cpu.getDE() & 0xFF)) - 1;
             const carryPerBit = ((cpu.getDE() & 0xFF)) - 1;
-            const E =  (cpu.getDE() & 0xFF00) | (result >> 8)
+            const E = (cpu.getDE() & 0xFF00) | (result >> 8)
             cput.setDE(E);
 
             if (result == 0) {
@@ -2883,7 +2883,7 @@ class InstructionSet extends CPU {
             */
             const result = ((cpu.getHL() & 0xFF)) - 1;
             const carryPerBit = ((cpu.getHL() & 0xFF)) - 1;
-            const L =  (cpu.getHL() & 0xFF00) | (result >> 8)
+            const L = (cpu.getHL() & 0xFF00) | (result >> 8)
             cput.SetHL(L);
 
             if (result == 0) {
@@ -3636,16 +3636,147 @@ class InstructionSet extends CPU {
             cpu.setC(~cpu.getC());
 
         }));
-        this.opcodeList.set(0x37, new Opcode('SCF', '', 0x37, 8, 1, (cpu) => {
-            /* flags.N = 0
-                flags.H = 0
-                flags.C = 1
+        this.opcodeList.set(0xCB37, new Opcode('SWAP', 'A', 0xCB37, 16, 1, (cpu) => {
+            /* 
+                Swap upper & lower nibles of n
             */
+            const upperNibble = (cpu.getA() & 0xF0) >> 4;
+            const lowerNibble = (cpu.getA() & 0x0F) << 4;
+
+            // Combine the nibbles in reverse order
+            const swapped = lowerNibble | upperNibble;
+            cpu.setA(swapped);
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
             cpu.setN(0);
             cpu.setH(0);
-            cpu.setC(1);
+            cpu.setC(0);
 
         }));
+        this.opcodeList.set(0xCB30, new Opcode('SWAP', 'B', 0xCB30, 16, 1, (cpu) => {
+            /* 
+                Swap upper & lower nibles of n
+            */
+            const upperNibble = (cpu.getBC() & 0xF000) >> 12;
+            const lowerNibble = (cpu.getBC() & 0x0FFF) << 4;
+
+            // Combine the nibbles in reverse order
+            const swapped = (lowerNibble | upperNibble);
+            cpu.setBC(swapped);
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(0);
+
+        }));
+        this.opcodeList.set(0xCB31, new Opcode('SWAP', 'C', 0xCB31, 16, 1, (cpu) => {
+            /* 
+                Swap upper & lower nibles of n
+            */
+            const upperNibble = (cpu.getBC() & 0xF0) << 4;
+            const lowerNibble = (cpu.getBC() & 0x0F) << 4;
+            const swapped = (upperNibble | (cpu.getBC() >> 4)) | lowerNibble;
+            cpu.setBC(swapped);
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(0);
+
+        }));
+        this.opcodeList.set(0xCB32, new Opcode('SWAP', 'D', 0xCB32, 16, 1, (cpu) => {
+            /* 
+                Swap upper & lower nibles of n
+            */
+            const upperNibble = (cpu.getDE() & 0xF000) >> 12;
+            const lowerNibble = (cpu.getDE() & 0x0FFF) << 4;
+
+            // Combine the nibbles in reverse order
+            const swapped = (lowerNibble | upperNibble);
+            cpu.setDE(swapped);
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(0);
+
+        }));
+        this.opcodeList.set(0xCB33, new Opcode('SWAP', 'E', 0xCB33, 16, 1, (cpu) => {
+            /* 
+                Swap upper & lower nibles of n
+            */
+            const upperNibble = (cpu.getDE() & 0xF0) << 4;
+            const lowerNibble = (cpu.getDE() & 0x0F) << 4;
+            const swapped = (upperNibble | (cpu.getDE() >> 4)) | lowerNibble;
+            cpu.setDE(swapped);
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(0);
+
+        }));
+        this.opcodeList.set(0xCB34, new Opcode('SWAP', 'H', 0xCB34, 16, 1, (cpu) => {
+            /* 
+                Swap upper & lower nibles of n
+            */
+            const upperNibble = (cpu.getHL() & 0xF000) >> 12;
+            const lowerNibble = (cpu.getHL() & 0x0FFF) << 4;
+
+            // Combine the nibbles in reverse order
+            const swapped = (lowerNibble | upperNibble);
+            cpu.getHL(swapped);
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(0);
+
+        }));
+        this.opcodeList.set(0xCB35, new Opcode('SWAP', 'L', 0xCB35, 16, 1, (cpu) => {
+            /* 
+                Swap upper & lower nibles of n
+            */
+            const upperNibble = (cpu.getHL() & 0xF0) << 4;
+            const lowerNibble = (cpu.getHL() & 0x0F) << 4;
+            const swapped = (upperNibble | (cpu.getHL() >> 4)) | lowerNibble;
+            cpu.getHL(swapped);
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(0);
+
+        }));
+        this.opcodeList.set(0xCB36, new Opcode('SWAP', 'HL', 0xCB36, 16, 1, (cpu) => {
+             
+            //?????????? wie zum teuifel soll man das mit 16 bit machen ? 
+
+            if (swapped === 0) {
+                cpu.setZ(1);
+            }
+
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(0);
+
+        }));
+
         this.opcodeList.set(0x27, new Opcode('DAA', '', 0x27, 8, 1, (cpu) => {
             /* 
                   https://forums.nesdev.org/viewtopic.php?t=15944
@@ -4315,14 +4446,13 @@ class InstructionSet extends CPU {
             cpu.setImeScheduled(1);
         }));
 
-        .
     }
 
     //returns the instruction which can be found by opcodeValue( decode step )
     static getInstruction(opcodeValue) {
 
         if (!this.opcodeList.get(opcodeValue)) {
-            throw new Error("Instruction not found: ",opcodeValue);
+            throw new Error("Instruction not found: ", opcodeValue);
         }
         return this.opcodeList.get(opcodeValue);
 
