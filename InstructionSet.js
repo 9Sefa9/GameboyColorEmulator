@@ -2,7 +2,18 @@ class InstructionSet extends CPU {
     static opcodeList = new Map();
 
     static prepareInstructions() {
-
+        this.opcodeList.set(0x76, new Opcode('HALT', '', 0x76, 8, 1, (cpu) => {
+            // Power down CPU until an interrupt occurs. Use this
+            //when ever possible to reduce energy consumption
+            console.log("HALT not implemented");
+            
+        }));
+        this.opcodeList.set(0x1000, new Opcode('STOP', '', 0x1000, 8, 1, (cpu) => {
+            // Power down CPU until an interrupt occurs. Use this
+            //when ever possible to reduce energy consumption
+            console.log("STOP not implemented");
+            
+        }));
         this.opcodeList.set(0x00, new Opcode('NOP', '', 0x00, 8, 1, (cpu) => {
             // Does nothing
         }));
@@ -3763,14 +3774,9 @@ class InstructionSet extends CPU {
             cpu.setC(0);
 
         }));
-        this.opcodeList.set(0xCB36, new Opcode('SWAP', 'HL', 0xCB36, 16, 1, (cpu) => {
-             
-            //?????????? wie zum teuifel soll man das mit 16 bit machen ? 
+        this.opcodeList.set(0xCB36, new Opcode('SWAP', 'HL', 0xCB36, 24, 1, (cpu) => {
 
-            if (swapped === 0) {
-                cpu.setZ(1);
-            }
-
+            console.log("0CB36 not implemented.");
             cpu.setN(0);
             cpu.setH(0);
             cpu.setC(0);
@@ -3977,6 +3983,18 @@ class InstructionSet extends CPU {
             if (cpu.getZ() === 1) {
                 cpu.setPC(cpu.getPC() + e);
             }
+        }));
+        this.opcodeList.set(0x37, new Opcode('SCF', '', 0x37, 8, 2, (cpu) => {
+            /* 
+            Z - Not affected.
+            N - Reset.
+            H - Reset.
+            C - Set.
+            */
+           
+            cpu.setC(1);
+            cpu.setN(0);
+            cpu.setH(0);
         }));
         this.opcodeList.set(0x30, new Opcode('JR', 'nc,e', 0x30, 16, 2, (cpu) => {
             /*  e = signed_8(read(PC++))
@@ -4441,11 +4459,49 @@ class InstructionSet extends CPU {
             /* IME = 0*/
             cpu.setIme(0);
         }));
-        this.opcodeList.set(0xFB, new Opcode('DI', '', 0xFB, 8, 1, (cpu) => {
+        this.opcodeList.set(0xFB, new Opcode('EI', '', 0xFB, 8, 1, (cpu) => {
             /*IME_scheduled = true*/
             cpu.setImeScheduled(1);
         }));
-
+        this.opcodeList.set(0x07, new Opcode('RLCA', '', 0x07, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0x17, new Opcode('RLA', '', 0x17, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0x0F, new Opcode('RRCA', '', 0x0F, 8, 1, (cpu) => {
+            /**/
+        }));    
+        this.opcodeList.set(0x1F, new Opcode('RRA', '', 0x1F, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0x1F, new Opcode('RLC', 'n', 0x1F, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB07, new Opcode('RLC', 'A', 0xCB07, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB00, new Opcode('RLC', 'B', 0xCB00, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB01, new Opcode('RLC', 'C', 0xCB01, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB02, new Opcode('RLC', 'D', 0xCB02, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB03, new Opcode('RLC', 'E', 0xCB03, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB04, new Opcode('RLC', 'H', 0xCB04, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB05, new Opcode('RLC', 'L', 0xCB05, 8, 1, (cpu) => {
+            /**/
+        }));
+        this.opcodeList.set(0xCB06, new Opcode('RLC', 'HL', 0xCB06, 8, 1, (cpu) => {
+            /**/
+        }));
     }
 
     //returns the instruction which can be found by opcodeValue( decode step )
