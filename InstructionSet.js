@@ -4475,31 +4475,31 @@ class InstructionSet extends CPU {
         this.opcodeList.set(0x1F, new Opcode('RRA', '', 0x1F, 8, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0x1F, new Opcode('RLC', 'n', 0x1F, 8, 1, (cpu) => {
+        this.opcodeList.set(0x1F, new Opcode('RLC', 'n', 0x1F, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB07, new Opcode('RLC', 'A', 0xCB07, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB07, new Opcode('RLC', 'A', 0xCB07, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB00, new Opcode('RLC', 'B', 0xCB00, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB00, new Opcode('RLC', 'B', 0xCB00, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB01, new Opcode('RLC', 'C', 0xCB01, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB01, new Opcode('RLC', 'C', 0xCB01, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB02, new Opcode('RLC', 'D', 0xCB02, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB02, new Opcode('RLC', 'D', 0xCB02, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB03, new Opcode('RLC', 'E', 0xCB03, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB03, new Opcode('RLC', 'E', 0xCB03, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB04, new Opcode('RLC', 'H', 0xCB04, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB04, new Opcode('RLC', 'H', 0xCB04, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB05, new Opcode('RLC', 'L', 0xCB05, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB05, new Opcode('RLC', 'L', 0xCB05, 16, 1, (cpu) => {
             /**/
         }));
-        this.opcodeList.set(0xCB06, new Opcode('RLC', 'HL', 0xCB06, 8, 1, (cpu) => {
+        this.opcodeList.set(0xCB06, new Opcode('RLC', 'HL', 0xCB06, 24, 1, (cpu) => {
             /**/
         }));
     }
