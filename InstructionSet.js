@@ -6,13 +6,13 @@ class InstructionSet extends CPU {
             // Power down CPU until an interrupt occurs. Use this
             //when ever possible to reduce energy consumption
             console.log("HALT not implemented");
-            
+
         }));
         this.opcodeList.set(0x1000, new Opcode('STOP', '', 0x1000, 8, 1, (cpu) => {
             // Power down CPU until an interrupt occurs. Use this
             //when ever possible to reduce energy consumption
             console.log("STOP not implemented");
-            
+
         }));
         this.opcodeList.set(0x00, new Opcode('NOP', '', 0x00, 8, 1, (cpu) => {
             // Does nothing
@@ -3991,7 +3991,7 @@ class InstructionSet extends CPU {
             H - Reset.
             C - Set.
             */
-           
+
             cpu.setC(1);
             cpu.setN(0);
             cpu.setH(0);
@@ -4465,42 +4465,682 @@ class InstructionSet extends CPU {
         }));
         this.opcodeList.set(0x07, new Opcode('RLCA', '', 0x07, 8, 1, (cpu) => {
             /**/
+
+            // Get Carry Flag: 
+            let carryFlag = cpu.getC();
+
+            // Get the most significant bit of the accumulator
+            let msb = (cpu.getA() & 0x80) >> 7;
+
+            // Rotate the accumulator to the left by one bit
+            let result = ((accumulator << 1) | carry) & 0xFF;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);  // Z flag is always set to 0
+            cpu.setN(0);  // N flag is always set to 0
+            cpu.setH(0);  // H flag is always set to 0
+            cpu.setC(msb);  // C flag is set to the value of the most significant bit
+
+            // Set the updated value of the accumulator register
+            cpu.setA(result);
         }));
         this.opcodeList.set(0x17, new Opcode('RLA', '', 0x17, 8, 1, (cpu) => {
-            /**/
+            // Get the most significant bit of the accumulator
+            let msb = (cpu.getA() & 0x80) >> 7;
+
+            // Rotate the accumulator to the left by one bit
+            let result = ((cpu.getA() << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);  // Z flag is always set to 0
+            cpu.setN(0);  // N flag is always set to 0
+            cpu.setH(0);  // H flag is always set to 0
+            cpu.setC(msb);  // C flag is set to the value of the most significant bit
+
+            // Set the updated value of the accumulator register
+            cpu.setA(result);
         }));
         this.opcodeList.set(0x0F, new Opcode('RRCA', '', 0x0F, 8, 1, (cpu) => {
-            /**/
-        }));    
+            // Get the value of the accumulator register
+            let accumulator = cpu.getA();
+
+            // Get the least significant bit of the accumulator
+            let lsb = accumulator & 0x01;
+
+            // Shift the accumulator to the right by one bit
+            let result = ((accumulator >> 1) | (lsb << 7)) & 0xFF;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0); // Z flag is always set to 0
+            cpu.setN(0); // N flag is always set to 0
+            cpu.setH(0); // H flag is always set to 0
+            cpu.setC(lsb); // C flag is set to the value of the least significant bit
+
+            // Set the updated value of the accumulator register
+            cpu.setA(result);
+        }));
         this.opcodeList.set(0x1F, new Opcode('RRA', '', 0x1F, 8, 1, (cpu) => {
             /**/
-        }));
-        this.opcodeList.set(0x1F, new Opcode('RLC', 'n', 0x1F, 16, 1, (cpu) => {
-            /**/
+            // Get the value of the accumulator register
+            let accumulator = cpu.getA();
+
+            // Get the least significant bit of the accumulator
+            let lsb = accumulator & 0x01;
+
+            // Get the value of the carry flag
+            let carry = cpu.getC();
+
+            // Shift the accumulator to the right by one bit
+            let result = ((accumulator >> 1) | (carry << 7)) & 0xFF;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0); // Z flag is always set to 0
+            cpu.setN(0); // N flag is always set to 0
+            cpu.setH(0); // H flag is always set to 0
+            cpu.setC(lsb); // C flag is set to the value of the least significant bit
+
+            // Set the updated value of the accumulator register
+            cpu.setA(result);
         }));
         this.opcodeList.set(0xCB07, new Opcode('RLC', 'A', 0xCB07, 16, 1, (cpu) => {
             /**/
+            // Get the value of the accumulator register
+            let accumulator = cpu.getA();
+
+            // Get the most significant bit of the accumulator
+            let msb = (accumulator & 0x80) >> 7;
+
+            // Rotate the accumulator to the left by one bit
+            let result = ((accumulator << 1) | msb) & 0xFF;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0); // Set Z flag if result is zero
+            cpu.setN(0); // N flag is always set to 0
+            cpu.setH(0); // H flag is always set to 0
+            cpu.setC(msb); // C flag is set to the value of the most significant bit
+
+            // Set the updated value of the accumulator register
+            cpu.setA(result);
         }));
         this.opcodeList.set(0xCB00, new Opcode('RLC', 'B', 0xCB00, 16, 1, (cpu) => {
             /**/
+            let bc = cpu.getBC();
+            let b = (bc & 0xFF00) >> 8;
+
+            // Extract the most significant bit of B
+            let msb = (b & 0x80) >> 7;
+
+            // Rotate B to the left by one bit
+            let result = ((b << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Set the updated value of register B in register pair BC
+            bc = (bc & 0x00FF) | (result << 8);
+            cpu.setBC(bc);
         }));
         this.opcodeList.set(0xCB01, new Opcode('RLC', 'C', 0xCB01, 16, 1, (cpu) => {
             /**/
+            // Get the value of register C from register pair BC
+            let bc = cpu.getBC();
+            let c = bc & 0xFF;
+
+            // Extract the most significant bit of C
+            let msb = (c & 0x80) >> 7;
+
+            // Rotate C to the left by one bit
+            let result = ((c << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Set the updated value of register C in register pair BC
+            bc = (bc & 0xFF00) | result;
+            cpu.setBC(bc);
         }));
         this.opcodeList.set(0xCB02, new Opcode('RLC', 'D', 0xCB02, 16, 1, (cpu) => {
             /**/
+            // Get the value of register D from register pair DE
+            let de = cpu.getDE();
+            let d = (de >> 8) & 0xFF;
+
+            // Extract the most significant bit of D
+            let msb = (d & 0x80) >> 7;
+
+            // Rotate D to the left by one bit
+            let result = ((d << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Set the updated value of register D in register pair DE
+            de = (de & 0x00FF) | (result << 8);
+            cpu.setDE(de);
         }));
         this.opcodeList.set(0xCB03, new Opcode('RLC', 'E', 0xCB03, 16, 1, (cpu) => {
             /**/
+            // Get the value of register E from register pair DE
+            let de = cpu.getDE();
+            let e = de & 0xFF;
+
+            // Extract the most significant bit of E
+            let msb = (e & 0x80) >> 7;
+
+            // Rotate E to the left by one bit
+            let result = ((e << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Set the updated value of register E in register pair DE
+            de = (de & 0xFF00) | result;
+            cpu.setDE(de);
         }));
         this.opcodeList.set(0xCB04, new Opcode('RLC', 'H', 0xCB04, 16, 1, (cpu) => {
             /**/
+            // Get the value of register H from register pair HL
+            let hl = cpu.getHL();
+            let h = (hl >> 8) & 0xFF;
+
+            // Extract the most significant bit of H
+            let msb = (h & 0x80) >> 7;
+
+            // Rotate H to the left by one bit
+            let result = ((h << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Set the updated value of register H in register pair HL
+            hl = (hl & 0x00FF) | (result << 8);
+            cpu.setHL(hl);
         }));
         this.opcodeList.set(0xCB05, new Opcode('RLC', 'L', 0xCB05, 16, 1, (cpu) => {
             /**/
+            // Get the value of register L from register pair HL
+            let hl = cpu.getHL();
+            let l = hl & 0xFF;
+
+            // Extract the most significant bit of L
+            let msb = (l & 0x80) >> 7;
+
+            // Rotate L to the left by one bit
+            let result = ((l << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Set the updated value of register L in register pair HL
+            hl = (hl & 0xFF00) | result;
+            cpu.setHL(hl);
         }));
-        this.opcodeList.set(0xCB06, new Opcode('RLC', 'HL', 0xCB06, 24, 1, (cpu) => {
+        this.opcodeList.set(0xCB06, new Opcode('RLC', 'HL', 0xCB06, 32, 1, (cpu) => {
             /**/
+            // Get the value of the memory location pointed to by register HL
+            let hl = cpu.getHL();
+            let value = cpu.memory[hl];
+
+            // Extract the most significant bit of the value
+            let msb = (value & 0x80) >> 7;
+
+            // Rotate the value to the left by one bit
+            let result = ((value << 1) & 0xFE) | msb;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Write the updated value back to the memory location pointed to by HL
+            cpu.memory[hl] = result;
+        }));
+        this.opcodeList.set(0xCB17, new Opcode('RL', 'A', 0xCB17, 16, 1, (cpu) => {
+            /**/
+            // Get the carry flag from the flags register
+            let carryFlag = cpu.getC();
+
+            // Get the most significant bit of the accumulator
+            let msb = (cpu.getA() & 0x80) >> 7;
+
+            // Rotate the accumulator to the left by one bit, with the carry flag as the least significant bit
+            let result = ((cpu.getA() << 1) & 0xFE) | carryFlag;
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);  // Z flag is set if result is 0
+            cpu.setN(0);  // N flag is always set to 0
+            cpu.setH(0);  // H flag is always set to 0
+            cpu.setC(msb);  // C flag is set to the value of the most significant bit before the rotation
+
+            // Set the updated value of the accumulator register
+            cpu.setA(result);
+        }));
+        this.opcodeList.set(0xCB10, new Opcode('RL', 'B', 0xCB10, 16, 1, (cpu) => {
+            /**/
+            // Get the most significant bit of the B register
+            let msb = (cpu.getBC() & 0x8000) >> 8;
+
+            // Shift the B register to the left by one bit and set the least significant bit to the value of the carry flag
+            let result = ((cpu.getBC() << 1) & 0xFFFE) | (cpu.getC() ? 1 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the B register
+            let newBC = (cpu.getBC() & 0xFF) | (result << 8);
+            cpu.setBC(newBC);
+        }));
+        this.opcodeList.set(0xCB11, new Opcode('RL', 'C', 0xCB11, 16, 1, (cpu) => {
+            /**/
+            // Get the most significant bit of the C register
+            let msb = (cpu.getBC() & 0x0080) >> 7;
+
+            // Shift the C register to the left by one bit and set the least significant bit to the value of the carry flag
+            let result = ((cpu.getBC() << 1) & 0xFFFE) | (cpu.getC() ? 1 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the C register
+            let newBC = (cpu.getBC() & 0xFF00) | result;
+            cpu.setBC(newBC);
+        }));
+        this.opcodeList.set(0xCB12, new Opcode('RL', 'D', 0xCB12, 16, 1, (cpu) => {
+            // Get the most significant bit of the D register
+            let msb = (cpu.getDE() & 0x8000) >> 8;
+
+            // Shift the D register to the left by one bit and set the least significant bit to the value of the carry flag
+            let result = ((cpu.getDE() << 1) & 0xFFFE) | (cpu.getC() ? 1 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the D register
+            let newDE = (cpu.getDE() & 0xFF) | (result << 8);
+            cpu.setDE(newDE);
+
+        }));
+        this.opcodeList.set(0xCB13, new Opcode('RL', 'E', 0xCB13, 16, 1, (cpu) => {
+            // Get the most significant bit of the E register
+            let msb = (cpu.getDE() & 0x8000) >> 8;
+
+            // Shift the E register to the left by one bit and set the least significant bit to the value of the carry flag
+            let result = ((cpu.getDE() << 1) & 0xFFFE) | (cpu.getC() ? 1 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the E register
+            let newDE = (cpu.getDE() & 0xFF) | (result << 8);
+            cpu.setDE(newDE);
+        }));
+        this.opcodeList.set(0xCB14, new Opcode('RL', 'H', 0xCB14, 16, 1, (cpu) => {
+            // Get the most significant bit of the H register
+            let msb = (cpu.getHL() & 0x8000) >> 8;
+
+            // Shift the H register to the left by one bit and set the least significant bit to the value of the carry flag
+            let result = ((cpu.getHL() << 1) & 0xFFFE) | (cpu.getC() ? 1 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the H register
+            let newHL = (cpu.getHL() & 0xFF) | (result << 8);
+            cpu.setHL(newHL);
+        }));
+        this.opcodeList.set(0xCB15, new Opcode('RL', 'L', 0xCB15, 16, 1, (cpu) => {
+            // Get the most significant bit of the L register
+            let msb = (cpu.getHL() & 0x0080) >> 7;
+
+            // Shift the L register to the left by one bit and set the least significant bit to the value of the carry flag
+            let result = ((cpu.getHL() << 1) & 0xFFFE) | (cpu.getC() ? 1 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the L register
+            let newHL = (cpu.getHL() & 0xFF00) | result;
+            cpu.setHL(newHL);
+        }));
+        this.opcodeList.set(0xCB16, new Opcode('RL', 'HL', 0xCB16, 32, 1, (cpu) => {
+            const hl = cpu.getHL();
+            const value = cpu.memory[hl];
+
+            // Get the most significant bit of the value
+            const msb = (value & 0x80) >> 7;
+
+            // Shift the value to the left by one bit and set the least significant bit to the value of the carry flag
+            const result = ((value << 1) & 0xFE) | (cpu.getC() ? 1 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Write the result back to memory
+            cpu.memory[hl] = result;
+        }));
+
+
+
+
+
+
+        this.opcodeList.set(0xCB0F, new Opcode('RRC', 'A', 0xCB0F, 16, 1, (cpu) => {
+            let lsb = cpu.getA() & 0x01;
+
+            // Shift the A register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getA() >> 1) | (cpu.getC() ? 0x80 : 0x00);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the A register
+            cpu.setA(result);
+        }));
+        this.opcodeList.set(0xCB08, new Opcode('RRC', 'B', 0xCB08, 16, 1, (cpu) => {
+            // Get the least significant bit of the B register
+            let lsb = cpu.getBC() & 0x0001;
+
+            // Shift the B register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = ((cpu.getBC() >> 1) & 0x7FFF) | (cpu.getC() ? 0x8000 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the B register
+            cpu.setBC(result);
+        }));
+        this.opcodeList.set(0xCB09, new Opcode('RRC', 'C', 0xCB09, 16, 1, (cpu) => {
+            // Get the least significant bit of the C register
+            let lsb = cpu.getBC() & 0x0001;
+
+            // Shift the C register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = ((cpu.getBC() >> 1) & 0x7FFF) | (cpu.getC() ? 0x8000 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the C register
+            let newBC = (cpu.getBC() & 0xFF00) | result;
+            cpu.setBC(newBC);
+        }));
+        this.opcodeList.set(0xCB0A, new Opcode('RRC', 'D', 0xCB0A, 16, 1, (cpu) => {
+            // Get the least significant bit of the D register
+            let lsb = cpu.getDE() & 0x0001;
+
+            // Shift the D register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getDE() >> 1) | (lsb << 15);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the DE register
+            cpu.setDE(result);
+
+        }));
+        this.opcodeList.set(0xCB0B, new Opcode('RRC', 'E', 0xCB0B, 16, 1, (cpu) => {
+            // Get the most significant bit of the DE register
+            let msb = (cpu.getDE() & 0x8000) >> 8;
+
+            // Shift the DE register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = ((cpu.getDE() >> 1) & 0x7FFF) | (cpu.getC() ? 0x8000 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the DE register
+            cpu.setDE(result);
+        }));
+        this.opcodeList.set(0xCB0C, new Opcode('RRC', 'H', 0xCB0C, 16, 1, (cpu) => {
+            // Get the least significant bit of the H register
+            let lsb = cpu.getHL() & 0x0001;
+
+            // Shift the H register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getHL() >> 1) | (cpu.getC() ? 0x8000 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the H register
+            cpu.setHL(result);
+        }));
+        this.opcodeList.set(0xCB0D, new Opcode('RRC', 'L', 0xCB0D, 16, 1, (cpu) => {
+            // Get the least significant bit of the L register
+            let lsb = cpu.getL() & 0x01;
+
+            // Shift the L register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getL() >> 1) | (cpu.getC() ? 0x80 : 0x00);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the L register
+            cpu.setHL((cpu.getHL() & 0xFF00) | result);
+        }));
+        this.opcodeList.set(0xCB0E, new Opcode('RRC', 'HL', 0xCB0E, 32, 1, (cpu) => {
+            // Get the value at the memory address in the HL register
+            let value = cpu.memory[cpu.getHL()];
+
+            // Get the least significant bit of the value
+            let lsb = value & 0x01;
+
+            // Shift the value to the right by one bit, and set the most significant bit to the value of the carry flag
+            let result = ((value >> 1) & 0x7F) | (cpu.getC() ? 0x80 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value at the memory address in the HL register
+            cpu.memory[cpu.getHL()] = result;
+        }));
+
+
+
+
+
+
+
+
+
+
+
+        this.opcodeList.set(0xCB1F, new Opcode('RR', 'A', 0xCB1F, 16, 1, (cpu) => {
+            // Get the least significant bit of the A register
+            let lsb = cpu.getA() & 0x01;
+
+            // Shift the A register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getA() >> 1) | (cpu.getF() & 0x10 ? 0x80 : 0x00);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the A register
+            cpu.setA(result);
+        }));
+
+        // HERE CONTINUE!
+        this.opcodeList.set(0xCB18, new Opcode('RR', 'B', 0xCB18, 16, 1, (cpu) => {
+            // Get the least significant bit of the A register
+            let lsb = cpu.getA() & 0x01;
+
+            // Shift the A register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getA() >> 1) | (cpu.getF() & 0x10 ? 0x80 : 0x00);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the A register
+            cpu.setA(result);
+        }));
+        this.opcodeList.set(0xCB19, new Opcode('RR', 'C', 0xCB19, 16, 1, (cpu) => {
+            // Get the least significant bit of the C register
+            let lsb = cpu.getBC() & 0x0001;
+
+            // Shift the C register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = ((cpu.getBC() >> 1) & 0x7FFF) | (cpu.getC() ? 0x8000 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the C register
+            let newBC = (cpu.getBC() & 0xFF00) | result;
+            cpu.setBC(newBC);
+        }));
+        this.opcodeList.set(0xCB1A, new Opcode('RR', 'D', 0xCB1A, 16, 1, (cpu) => {
+            // Get the least significant bit of the D register
+            let lsb = cpu.getDE() & 0x0001;
+
+            // Shift the D register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getDE() >> 1) | (lsb << 15);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the DE register
+            cpu.setDE(result);
+
+        }));
+        this.opcodeList.set(0xCB1B, new Opcode('RR', 'E', 0xCB1B, 16, 1, (cpu) => {
+            // Get the most significant bit of the DE register
+            let msb = (cpu.getDE() & 0x8000) >> 8;
+
+            // Shift the DE register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = ((cpu.getDE() >> 1) & 0x7FFF) | (cpu.getC() ? 0x8000 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(msb);
+
+            // Update the value of the DE register
+            cpu.setDE(result);
+        }));
+        this.opcodeList.set(0xCB1C, new Opcode('RR', 'H', 0xCB1C, 16, 1, (cpu) => {
+            // Get the least significant bit of the H register
+            let lsb = cpu.getHL() & 0x0001;
+
+            // Shift the H register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getHL() >> 1) | (cpu.getC() ? 0x8000 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the H register
+            cpu.setHL(result);
+        }));
+        this.opcodeList.set(0xCB1D, new Opcode('RR', 'L', 0xCB1D, 16, 1, (cpu) => {
+            // Get the least significant bit of the L register
+            let lsb = cpu.getL() & 0x01;
+
+            // Shift the L register to the right by one bit and set the most significant bit to the value of the carry flag
+            let result = (cpu.getL() >> 1) | (cpu.getC() ? 0x80 : 0x00);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value of the L register
+            cpu.setHL((cpu.getHL() & 0xFF00) | result);
+        }));
+        this.opcodeList.set(0xCB1E, new Opcode('RR', 'HL', 0xCB1E, 32, 1, (cpu) => {
+            // Get the value at the memory address in the HL register
+            let value = cpu.memory[cpu.getHL()];
+
+            // Get the least significant bit of the value
+            let lsb = value & 0x01;
+
+            // Shift the value to the right by one bit, and set the most significant bit to the value of the carry flag
+            let result = ((value >> 1) & 0x7F) | (cpu.getC() ? 0x80 : 0);
+
+            // Set the flags register based on the result
+            cpu.setZ(result === 0 ? 1 : 0);
+            cpu.setN(0);
+            cpu.setH(0);
+            cpu.setC(lsb);
+
+            // Update the value at the memory address in the HL register
+            cpu.memory[cpu.getHL()] = result;
         }));
     }
 
