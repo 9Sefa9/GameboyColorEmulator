@@ -7,26 +7,26 @@ class CPU {
     this.HL = 0; //16 bit register
     this.SP = 0; //16 bit register - Stack Pointer
     this.PC = 0; //16 bit register - Program Counter
-    
+
     this.AF = 0; //Accumulator 8 bit and Flags 8 bit = 16 bit register
 
     //Flags 
     // 7 6 5 4 3 2 1 0
     // Z N H C 0 0 0 0
-    
+
     // Zero Flag (Z):
     // This bit is set when the result of a math operation
     // is zero or two values match when using the CP
     // instruction.
-    
+
     // Subtract Flag (N):
     // This bit is set if a subtraction was performed in the
     // last math instruction.
-    
+
     // Half Carry Flag (H):
     // This bit is set if a carry occurred from the lower
     // nibble in the last math operation.
-    
+
     // Carry Flag (C):
     // This bit is set if a carry occurred from the last
     // math operation or if register A is the smaller value
@@ -48,57 +48,90 @@ class CPU {
     //Interrupt handling ( To do )
     this.ime = 0;
     this.imeScheduled = 0;
+
     //DUMMY DATAS
-    this.memory = new Array(1500).fill(Math.random() * window.performance.now());
+    this.instructions = null;
+    this.memory = new Uint8Array(0xFFFFF);
   }
   start() {
-    this.reset();
-    this.startTime = window.performance.now();
-    requestAnimationFrame(() => this.loop());
+    document.getElementById("rom").addEventListener('mouseover', (event) => {
+      const file = event.target.files[0]; // get the selected file
+      const reader = new FileReader(); // create a new FileReader object
+
+      reader.onload = (e) => { // define the onload event handler
+        const arrayBuffer = e.target.result; // get the contents of the file as an ArrayBuffer
+        const rom = new Uint8Array(arrayBuffer); // create a new Uint8Array from the ArrayBuffer
+        this.instructions = rom;
+        this.memory.set(0x100, this.instructions);
+        console.log(this.memory);
+        this.startTime = window.performance.now();
+        this.reset();
+        this.raf = requestAnimationFrame(() => this.loop());
+      };
+      reader.readAsArrayBuffer(file); // read the file as an ArrayBuffer
+    });
   }
   reset() {
-    this.setPC(0x100);
     this.setSP(0xFFFE);
-    this.memory[this.getPC()] = 0x30;
+    this.setPC(0x100);
   }
   //@TODO cycleCount implementierung ( machine cycle und cycle ..)
   loop() {
+
     this.frameCount++;
     this.currentTime = window.performance.now();
     this.elapsedTime = this.currentTime - this.startTime;
 
     if (this.elapsedTime >= 11.72) {
+      this.stopLoop();
       this.startTime = this.currentTime;
 
       this.wait();
 
       //Logic
-      const opcode = this.fetch(this.getPC());
+      const opcode = this.fetch();
       const instruction = this.decode(opcode);
-      this.execute(instruction);
+      console.log("MEMLOCPC: ", String(this.instructions[this.getPC()]).toString(16), "| INSTR: ", instruction.getInstruction(), ',', instruction.getParameters(), "| PC: 0x", this.getPC().toString(16), "| SP: 0x", this.getSP().toString(16));
 
+      this.execute(instruction);
       //Additional visual helpers
       this.fpsTitle.textContent = `FPS: ${Math.floor((this.frameCount / this.elapsedTime) * 1000)}`;
       this.frameCount = 0;
+
+      // For Blargs CPU test ( without ppu )
+      if (this.memory[0xFF02] === 0x81) {
+        let c = this.memory[0xFF01];
+        console.log("RESULTS:");
+        console.log(c);
+        this.memory[0xFF02] = 0x0;
+      }
     }
 
-    requestAnimationFrame(() => this.loop());
+    this.raf = requestAnimationFrame(() => this.loop());
   }
+  stopLoop() {
+    this.fpsTitle.addEventListener('mouseover', () => {
+      if (this.raf) {
+        window.cancelAnimationFrame(this.raf);
+        this.raf = undefined;
+      }
+    });
 
+  }
   //The instruction cycle consists of four phases: fetching an instruction from memory and 
-  fetch(pc) {
+  fetch() {
 
     // Every instruction needs one machine cycle for the fetch stage, and 
     //at least one machine cycle for the decode/execute stage.  1 machine cycle = 8 cycles
     this.setCPUCycle(this.getCPUCycle() + 8);
-    this.setPC(pc + 1);
-    return this.memory[pc];
+    let currentMemoryData = this.instructions[this.getPC()];
+    this.setPC(this.getPC() + 1);
+
+    return currentMemoryData;
   }
   //decoding the fetched instruction, reading the address from memory...
   decode(opcode) {
     this.setCPUCycle(this.getCPUCycle() + 8);
-    //TODO - wie genau soll ich den instruction functionaufruf machen ?
-    //0x30
     return InstructionSet.getInstruction(opcode);
 
   }
@@ -113,10 +146,10 @@ class CPU {
     }
   }
   //Interrupts
-  setIme(value){
+  setIme(value) {
     this.ime = value;
   }
-  setImeScheduled(value){
+  setImeScheduled(value) {
     this.imeScheduled = value;
   }
   //Cycle 
@@ -128,19 +161,25 @@ class CPU {
   }
   //Stack Pointer and Program Counter
   setPC(value) {
-    this.PC = value;
+    this.PC = value & 0xFFFF;
   }
   getPC() {
-    return this.PC;
+    return this.PC & 0xFFFF;
   }
 
   setSP(value) {
-    this.SP = value;
+    this.SP = value & 0xFFFF;
   }
   getSP() {
-    return this.SP;
+    return this.SP & 0xFFFF;
   }
   //Accumulator
+  setAF(value) {
+    this.AF = value & 0xFFFF;
+  }
+  getAF() {
+    return this.AF & 0xFFFF;
+  }
   /**
   * Set the A register to the value passed in, but keep the F register the same.
   * @param {value} value - The value to set the register to.
@@ -186,7 +225,7 @@ class CPU {
    * @returns The Z-flag is being returned which is either 1 or 0.
    */
   getZ() {
-    return (this.AF & 0x80)>>7;
+    return (this.AF & 0x80) >> 7;
   }
 
   /**
@@ -203,7 +242,7 @@ class CPU {
    * @returns The N-flag is being returned which is either 1 or 0.
    */
   getN() {
-    return (this.AF & 0x40)>>6;
+    return (this.AF & 0x40) >> 6;
   }
   /**
    * Set the H flag to the value of the 5th bit of the value parameter.
@@ -218,7 +257,7 @@ class CPU {
    * @returns The H-flag is being returned which is either 1 or 0.
    */
   getH() {
-    return (this.AF & 0x20)>>5;
+    return (this.AF & 0x20) >> 5;
   }
   /**
    * The function sets the C flag in the AF register to the value of the 4th bit of the value parameter
@@ -232,27 +271,27 @@ class CPU {
    * @returns The C-flag is being returned which is either 1 or 0.
    */
   getC() {
-    return (this.AF & 0x10)>>4;
+    return (this.AF & 0x10) >> 4;
   }
 
   //Register  BC, DE and HL
   setBC(value) {
-    this.BC = value;
+    this.BC = value & 0xFFFF;
   }
   getBC() {
-    return this.BC;
+    return this.BC & 0xFFFF;
   }
   setDE(value) {
-    this.DE = value;
+    this.DE = value & 0xFFFF;
   }
   getDE() {
-    return this.DE;
+    return this.DE & 0xFFFF;
   }
   setHL(value) {
-    this.HL = value;
+    this.HL = value & 0xFFFF;
   }
   getHL() {
-    return this.HL;
+    return this.HL & 0xFFFF;
   }
   toUnsigned16Bit(LSBValue, MSBValue) {
     /*

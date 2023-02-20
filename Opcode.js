@@ -48,5 +48,8 @@ class Opcode {
     executeOn(cpu){
         this.logic(cpu);
     }
+    toString(){
+        return "INS:"+this.getInstruction()+" OPCODE: " + this.getOpcode() + " PARAM: " + this.getParameters();
+    }
 
 }
