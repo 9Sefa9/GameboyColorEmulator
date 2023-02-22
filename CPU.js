@@ -51,9 +51,10 @@ class CPU {
 
     //DUMMY DATAS
     this.instructions = null;
-    this.memory = new Uint8Array(0xFFFFF);
+    this.memory = null;
   }
   start() {
+    this.reset();
     document.getElementById("rom").addEventListener('mouseover', (event) => {
       const file = event.target.files[0]; // get the selected file
       const reader = new FileReader(); // create a new FileReader object
@@ -62,18 +63,21 @@ class CPU {
         const arrayBuffer = e.target.result; // get the contents of the file as an ArrayBuffer
         const rom = new Uint8Array(arrayBuffer); // create a new Uint8Array from the ArrayBuffer
         this.instructions = rom;
-        this.memory.set(0x100, this.instructions);
-        console.log(this.memory);
+        this.memory = new MBC1(rom, 0xFFFF);
         this.startTime = window.performance.now();
-        this.reset();
         this.raf = requestAnimationFrame(() => this.loop());
       };
       reader.readAsArrayBuffer(file); // read the file as an ArrayBuffer
     });
   }
   reset() {
-    this.setSP(0xFFFE);
     this.setPC(0x100);
+    this.setAF(0x11);
+    this.setAF((this.getAF() & 0xFF00) | 0xB0);
+    this.setBC(0x0013);
+    this.setDE(0x00D8);
+    this.setHL(0x014D);
+    this.setSP(0xFFFE);
   }
   //@TODO cycleCount implementierung ( machine cycle und cycle ..)
   loop() {
@@ -99,11 +103,11 @@ class CPU {
       this.frameCount = 0;
 
       // For Blargs CPU test ( without ppu )
-      if (this.memory[0xFF02] === 0x81) {
-        let c = this.memory[0xFF01];
+      if (this.memory.readByte(0xFF02) === 0x81) {
+        let c = this.memory.readByte(0xFF01);
         console.log("RESULTS:");
         console.log(c);
-        this.memory[0xFF02] = 0x0;
+        this.memory.writeByte(0xFF02, 0x0);
       }
     }
 
@@ -124,7 +128,11 @@ class CPU {
     // Every instruction needs one machine cycle for the fetch stage, and 
     //at least one machine cycle for the decode/execute stage.  1 machine cycle = 8 cycles
     this.setCPUCycle(this.getCPUCycle() + 8);
-    let currentMemoryData = this.instructions[this.getPC()];
+    var currentMemoryData = this.instructions[this.getPC()];
+    if(currentMemoryData === 0xCB){
+      this.setPC(this.getPC() + 1);
+      currentMemoryData = (currentMemoryData & 0xFF00) | (this.instructions[this.getPC()] & 0xFF);
+    }
     this.setPC(this.getPC() + 1);
 
     return currentMemoryData;
@@ -164,21 +172,21 @@ class CPU {
     this.PC = value & 0xFFFF;
   }
   getPC() {
-    return this.PC & 0xFFFF;
+    return this.PC;
   }
 
   setSP(value) {
-    this.SP = value & 0xFFFF;
+    this.SP = value ;
   }
   getSP() {
-    return this.SP & 0xFFFF;
+    return this.SP;
   }
   //Accumulator
   setAF(value) {
-    this.AF = value & 0xFFFF;
+    this.AF = value;
   }
   getAF() {
-    return this.AF & 0xFFFF;
+    return this.AF;
   }
   /**
   * Set the A register to the value passed in, but keep the F register the same.
@@ -276,22 +284,22 @@ class CPU {
 
   //Register  BC, DE and HL
   setBC(value) {
-    this.BC = value & 0xFFFF;
+    this.BC = value;
   }
   getBC() {
-    return this.BC & 0xFFFF;
+    return this.BC;
   }
   setDE(value) {
-    this.DE = value & 0xFFFF;
+    this.DE = value;
   }
   getDE() {
-    return this.DE & 0xFFFF;
+    return this.DE;
   }
   setHL(value) {
-    this.HL = value & 0xFFFF;
+    this.HL = value;
   }
   getHL() {
-    return this.HL & 0xFFFF;
+    return this.HL;
   }
   toUnsigned16Bit(LSBValue, MSBValue) {
     /*
