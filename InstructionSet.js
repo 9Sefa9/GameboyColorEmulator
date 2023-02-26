@@ -68,23 +68,27 @@ class InstructionSet extends CPU {
         }));
 
         this.opcodeList.set(0x7E, new Opcode('LD', 'A,(HL)', 0x7E, 8, 1, (cpu) => {
-
-            const value = cpu.memory.readByte((cpu.getHL()));
+            /*
+                A = read(HL)
+            */
+            const address = cpu.getHL();
+            const value = cpu.memory.readByte(address);
             cpu.setA(value);
         }));
 
         this.opcodeList.set(0xFA, new Opcode('LD', 'A,(nn)', 0xFA, 32, 3, (cpu) => {
             // nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
-            //A = read(nn)
+            // A = read(nn)
 
             const lsbValue = cpu.memory.readByte(cpu.getPC());
             cpu.setPC(cpu.getPC() + 1);
             const msbValue = cpu.memory.readByte(cpu.getPC());
             cpu.setPC(cpu.getPC() + 1);
 
-            const nn = cpu.toUnsigned16Bit(lsbValue, msbValue)
+            const nn = cpu.toUnsigned16Bit(lsbValue, msbValue);
             const memoryData = cpu.memory.readByte(nn);
             cpu.setA(memoryData);
+            cpu.setF(cpu.getF() & 0xF0); // clear the lower 4 bits of the F register
         }));
         this.opcodeList.set(0x3E, new Opcode('LD', 'A,#', 0x3E, 32, 3, (cpu) => {
             //I think that's an immediate load. It takes the next byte (the one immediately after 3E in the ROM) 
@@ -149,9 +153,8 @@ class InstructionSet extends CPU {
 
         this.opcodeList.set(0x48, new Opcode('LD', 'C,B', 0x48, 16, 1, (cpu) => {
 
-            const value = ((cpu.getBC() & 0xFF00) >> 8);
-
-            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+            const value = (cpu.getBC() >> 8) & 0xFF;
+            cpu.setBC((cpu.getBC() & 0x00FF) | (value << 8));
         }));
         this.opcodeList.set(0x49, new Opcode('LD', 'C,C', 0x49, 16, 1, (cpu) => {
 
@@ -160,8 +163,8 @@ class InstructionSet extends CPU {
         }));
         this.opcodeList.set(0x4A, new Opcode('LD', 'C,D', 0x4A, 16, 1, (cpu) => {
 
-            const value = ((cpu.getDE() & 0xFF00) >> 8);
-            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+            const value = (cpu.getDE() >> 8) & 0xFF;
+            cpu.setBC((cpu.getBC() & 0x00FF) | (value << 8));
         }));
         this.opcodeList.set(0x4B, new Opcode('LD', 'C,E', 0x4B, 16, 1, (cpu) => {
 
@@ -170,8 +173,8 @@ class InstructionSet extends CPU {
         }));
         this.opcodeList.set(0x4C, new Opcode('LD', 'C,H', 0x4C, 16, 1, (cpu) => {
 
-            const value = ((cpu.getHL() & 0xFF00) >> 8);
-            cpu.setBC((cpu.getBC() & 0xFF00) | value);
+            const value = (cpu.getHL() >> 8) & 0xFF;
+            cpu.setBC((cpu.getBC() & 0x00FF) | (value << 8));
         }));
         this.opcodeList.set(0x4D, new Opcode('LD', 'C,L', 0x4D, 16, 1, (cpu) => {
 
@@ -189,8 +192,7 @@ class InstructionSet extends CPU {
 
         this.opcodeList.set(0x50, new Opcode('LD', 'D,B', 0x50, 16, 1, (cpu) => {
 
-            const value = ((cpu.getBC() & 0xFF00) >> 8);
-
+            const value = (cpu.getBC() >> 8) & 0xFF;
             cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
         }));
         this.opcodeList.set(0x51, new Opcode('LD', 'D,C', 0x51, 16, 1, (cpu) => {
@@ -205,12 +207,12 @@ class InstructionSet extends CPU {
         }));
         this.opcodeList.set(0x53, new Opcode('LD', 'D,E', 0x53, 16, 1, (cpu) => {
 
-            const value = (cpu.getDE() & 0xFF);
+            const value = (cpu.getDE() >> 8) & 0xFF;
             cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
         }));
         this.opcodeList.set(0x54, new Opcode('LD', 'D,H', 0x54, 16, 1, (cpu) => {
 
-            const value = ((cpu.getHL() & 0xFF00) >> 8);
+            const value = (cpu.getHL() >> 8) & 0xFF;
             cpu.setDE((cpu.getDE() & 0x00FF) | (value << 8));
         }));
         this.opcodeList.set(0x55, new Opcode('LD', 'D,L', 0x55, 16, 1, (cpu) => {
@@ -227,36 +229,35 @@ class InstructionSet extends CPU {
 
 
         this.opcodeList.set(0x58, new Opcode('LD', 'E,B', 0x58, 16, 1, (cpu) => {
-
             const value = ((cpu.getBC() & 0xFF00) >> 8);
-
-            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+            cpu.setDE((cpu.getDE() & 0xFF00) | value);
         }));
+
         this.opcodeList.set(0x59, new Opcode('LD', 'E,C', 0x59, 16, 1, (cpu) => {
-
             const value = (cpu.getBC() & 0xFF);
-            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+            cpu.setDE((cpu.getDE() & 0xFF00) | value);
         }));
+
         this.opcodeList.set(0x5A, new Opcode('LD', 'E,D', 0x5A, 16, 1, (cpu) => {
-
             const value = ((cpu.getDE() & 0xFF00) >> 8);
-            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+            cpu.setDE((cpu.getDE() & 0xFF00) | value);
         }));
+
         this.opcodeList.set(0x5B, new Opcode('LD', 'E,E', 0x5B, 16, 1, (cpu) => {
-
             const value = (cpu.getDE() & 0xFF);
-            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+            cpu.setDE((cpu.getDE() & 0xFF00) | value);
         }));
+
         this.opcodeList.set(0x5C, new Opcode('LD', 'E,H', 0x5C, 16, 1, (cpu) => {
-
             const value = ((cpu.getHL() & 0xFF00) >> 8);
-            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+            cpu.setDE((cpu.getDE() & 0xFF00) | value);
         }));
-        this.opcodeList.set(0x5D, new Opcode('LD', 'E,L', 0x5D, 16, 1, (cpu) => {
 
+        this.opcodeList.set(0x5D, new Opcode('LD', 'E,L', 0x5D, 16, 1, (cpu) => {
             const value = (cpu.getHL() & 0xFF);
-            cpu.setDE((cpu.getDE() & 0xFF00) | (value));
+            cpu.setDE((cpu.getDE() & 0xFF00) | value);
         }));
+
         this.opcodeList.set(0x5E, new Opcode('LD', 'E,(HL)', 0x5E, 16, 1, (cpu) => {
 
             const value = cpu.memory.readByte(cpu.getHL());
@@ -266,22 +267,16 @@ class InstructionSet extends CPU {
 
 
         this.opcodeList.set(0x60, new Opcode('LD', 'H,B', 0x60, 16, 1, (cpu) => {
-
-
-            const bValue = cpu.getBC() >> 8; // Extract the high byte of the BC register
-
-            const hlValue = cpu.getHL(); // Retrieve the value from register HL
-            const newValue = (bValue << 8) | (hlValue & 0x00FF); // Combine the high byte of the BC register with the low byte of the HL register
-
-            cpu.setHL(newValue); // Store the combined value into register HL
+            const value = ((cpu.getBC() & 0xFF00) >> 8);
+            cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
         }));
-        this.opcodeList.set(0x61, new Opcode('LD', 'H,C', 0x61, 16, 1, (cpu) => {
 
+        this.opcodeList.set(0x61, new Opcode('LD', 'H,C', 0x61, 16, 1, (cpu) => {
             const value = (cpu.getBC() & 0xFF);
             cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
         }));
-        this.opcodeList.set(0x62, new Opcode('LD', 'H,D', 0x62, 16, 1, (cpu) => {
 
+        this.opcodeList.set(0x62, new Opcode('LD', 'H,D', 0x62, 16, 1, (cpu) => {
             const value = ((cpu.getDE() & 0xFF00) >> 8);
             cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
         }));
@@ -291,7 +286,7 @@ class InstructionSet extends CPU {
             cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
         }));
         this.opcodeList.set(0x64, new Opcode('LD', 'H,H', 0x64, 16, 1, (cpu) => {
-
+            //noop actually.
             const value = ((cpu.getHL() & 0xFF00) >> 8);
             cpu.setHL((cpu.getHL() & 0x00FF) | (value << 8));
         }));
@@ -334,26 +329,25 @@ class InstructionSet extends CPU {
         }));
         this.opcodeList.set(0x6C, new Opcode('LD', 'L,H', 0x6C, 16, 1, (cpu) => {
 
-            const value = ((cpu.getHL() & 0xFF00) >> 8);
-            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+            const value = cpu.getHL() & 0xFF00; // Get high byte of register HL
+            const h = (cpu.getHL() & 0xFF00) >> 8; // Get value of register H
+            const newValue = value | h; // Copy value of H to L while preserving high byte of HL
+            cpu.setHL(newValue); // Copy the new value to register HL
         }));
         this.opcodeList.set(0x6D, new Opcode('LD', 'L,L', 0x6D, 16, 1, (cpu) => {
 
-            const value = (cpu.getHL() & 0xFF);
-            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+            cpu.setHL(cpu.getHL()); // Copy the value of register L to itself
         }));
         this.opcodeList.set(0x6E, new Opcode('LD', 'L,(HL)', 0x6E, 16, 1, (cpu) => {
 
-            const value = cpu.memory.readByte(cpu.getHL());
-            cpu.setHL((cpu.getHL() & 0xFF00) | (value));
+            const value = cpu.getHL(); // Read byte from memory address pointed to by HL
+            cpu.setHL((cpu.getHL() & 0xFF00) | value); // Copy value to L while preserving high byte of HL
         }));
 
 
         this.opcodeList.set(0x70, new Opcode('LD', '(HL),B', 0x70, 16, 1, (cpu) => {
-
-            const value = ((cpu.getBC() & 0xFF00) >> 8);
-
-            cpu.memory.writeByte(cpu.getHL(), value);
+            const value = cpu.getBC() & 0xFF; // Get low byte of register BC, which contains the value of B
+            cpu.memory.writeByte(cpu.getHL(), value); // Write value to memory address pointed to by HL
         }));
         this.opcodeList.set(0x71, new Opcode('LD', '(HL),C', 0x71, 16, 1, (cpu) => {
 
@@ -398,7 +392,7 @@ class InstructionSet extends CPU {
         this.opcodeList.set(0x0E, new Opcode('LD', 'C,n', 0x0E, 16, 2, (cpu) => {
             const n = cpu.memory.readByte(cpu.getPC());
             cpu.setPC(cpu.getPC() + 1);
-            cpu.setC(n);
+            cpu.setBC((cpu.getBC() & 0xFF00) | n);
         }));
         this.opcodeList.set(0x16, new Opcode('LD', 'D,n', 0x16, 16, 2, (cpu) => {
             const n = cpu.memory.readByte(cpu.getPC());
@@ -512,8 +506,9 @@ class InstructionSet extends CPU {
             // A = read(HL++)
 
             const memoryValue = cpu.memory.readByte(cpu.getHL());
-            cpu.setA(memoryValue);
             cpu.setHL(cpu.getHL() + 1);
+            cpu.setA(memoryValue);
+
 
         }));
         this.opcodeList.set(0x22, new Opcode('LD', '(HL+),A', 0x22, 16, 1, (cpu) => {
@@ -602,21 +597,28 @@ class InstructionSet extends CPU {
             cpu.memory.writeByte(nn + 1, ((cpu.getSP() & 0xFF00) >> 8));
 
         }));
-        this.opcodeList.set(0xF8, new Opcode('LD', 'SP,HL', 0xF8, 16, 1, (cpu) => {
-            /*
-               SP = HL
-            */
-            const n = cpu.memory.readByte(cpu.getPC());
-            cpu.setPC(cpu.getPC() + 1)
-            cpu.setSP(n);
-
-        }));
         this.opcodeList.set(0xF9, new Opcode('LD', 'SP,HL', 0xF9, 16, 1, (cpu) => {
             /*
-               SP = HL
+              SP = HL
             */
             cpu.setSP(cpu.getHL());
+        }));
+        this.opcodeList.set(0xF8, new Opcode('LDHL', 'SP,n', 0xF8, 12, 2, (cpu) => {
+            /*
+              HL = SP + e
+            */
+            const e = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
+            const signedE = (e & 0x80) ? -((~e + 1) & 0xFF) : e;
+            const result = cpu.getSP() + signedE;
+            cpu.setHL(result);
+
+            // Set flags
+            cpu.setZ(0);
+            cpu.setN(0);
+            cpu.setH(((cpu.getSP() & 0xF) + (signedE & 0xF)) > 0xF);
+            cpu.setC(((cpu.getSP() & 0xFF) + signedE) > 0xFF || ((cpu.getSP() & 0xFFFF) + signedE) > 0xFFFF);
         }));
         this.opcodeList.set(0xF5, new Opcode('PUSH', 'AF', 0xF5, 32, 1, (cpu) => {
 
@@ -2480,14 +2482,7 @@ class InstructionSet extends CPU {
 
         }));
         this.opcodeList.set(0x14, new Opcode('INC', 'D', 0x14, 8, 1, (cpu) => {
-            /* n = read(PC++)
-                result, carry_per_bit = B + 1
-                B = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
 
-            */
             const result = ((cpu.getDE() & 0xFF00) >> 8) + 1;
             const carryPerBit = ((cpu.getDE() & 0xFF00) >> 8) + 1;
             const D = (cpu.getDE() & 0x00FF) | (result << 8);
@@ -2509,21 +2504,14 @@ class InstructionSet extends CPU {
 
         }));
         this.opcodeList.set(0x1C, new Opcode('INC', 'E', 0x1C, 8, 1, (cpu) => {
-            /* n = read(PC++)
-                result, carry_per_bit = B + 1
-                B = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
+            const DE = cpu.getDE();
+            const E = (DE & 0xFF) + 1;
+            const carryPerBit = DE + 1;
+            const newDE = (DE & 0xFF00) | (E & 0xFF);
+            cpu.setDE(newDE);
 
-            */
-            const result = ((cpu.getDE() & 0xFF)) + 1;
-            const carryPerBit = ((cpu.getDE() & 0xFF)) + 1;
-            const E = (cpu.getDE() & 0xFF00) | (result >> 8);
-            cpu.setDE(E);
-
-            if (result == 0) {
-                cpu.setZ(1)
+            if (E === 0) {
+                cpu.setZ(1);
             } else {
                 cpu.setZ(0);
             }
@@ -2531,11 +2519,10 @@ class InstructionSet extends CPU {
             cpu.setN(0);
 
             if ((carryPerBit & 0x0F) > 0x0F) {
-                cpu.setH(1)
+                cpu.setH(1);
             } else {
-                cpu.setH(0)
+                cpu.setH(0);
             }
-
         }));
         this.opcodeList.set(0x24, new Opcode('INC', 'H', 0x24, 8, 1, (cpu) => {
             /* n = read(PC++)
@@ -3450,23 +3437,20 @@ class InstructionSet extends CPU {
             cpu.setC(0);
         }));
         this.opcodeList.set(0xAF, new Opcode('XOR', 'A', 0xAF, 8, 1, (cpu) => {
-            /* result = A ^ B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 0
-                flags.C = 0
-                ((cpu.getBC() & 0xFF00) >> 8);
-                (cpu.getBC() & 0xFF)
+            /* result = A ^ A
+               A = result
+               flags.Z = 1 if result == 0 else 0
+               flags.N = 0
+               flags.H = 0
+               flags.C = 0
             */
-            const result = cpu.getA() ^ (cpu.getA())
+            const result = cpu.getA() ^ cpu.getA();
             cpu.setA(result);
             if (result == 0) {
-                cpu.setZ(1)
+                cpu.setZ(1);
             } else {
                 cpu.setZ(0);
             }
-
             cpu.setN(0);
             cpu.setH(0);
             cpu.setC(0);
@@ -3791,7 +3775,6 @@ class InstructionSet extends CPU {
         }));
         this.opcodeList.set(0xCB36, new Opcode('SWAP', 'HL', 0xCB36, 24, 1, (cpu) => {
 
-            console.log("0CB36 not implemented.");
             cpu.setN(0);
             cpu.setH(0);
             cpu.setC(0);
@@ -3854,11 +3837,11 @@ class InstructionSet extends CPU {
             /* nn = unsigned_16(lsb=read(PC++), msb=read(PC++))
                PC = nn
             */
-            const lsbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const lsbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
-            const msbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const msbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
             cpu.setPC(finalValue);
@@ -3874,12 +3857,11 @@ class InstructionSet extends CPU {
                 cc = Z, Jump if Z flag is set.
                 cc = NC, Jump if C flag is reset.
                 cc = C, Jump if C flag is set.
-
             */
-            const lsbValue = cpu.getPC();
+            const lsbValue = cpu.memory.readByte(cpu.getPC());
             cpu.setPC(cpu.getPC() + 1)
 
-            const msbValue = cpu.getPC();
+            const msbValue = cpu.memory.readByte(cpu.getPC());
             cpu.setPC(cpu.getPC() + 1)
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
@@ -3960,24 +3942,20 @@ class InstructionSet extends CPU {
 
             // convert the unsigned 8-bit value to a signed 8-bit value
             if (e & 0x80) {
-                e = -(~e + 1);
+                e = (-(~e + 1) & 0xFF);
             }
 
             cpu.setPC(cpu.getPC() + e);
         }));
         this.opcodeList.set(0x20, new Opcode('JR', 'nz,e', 0x20, 16, 2, (cpu) => {
-            /*  e = signed_8(read(PC++))
-                if F.check_condition(cc):
-                PC = PC + e
-
-            */
             let e = cpu.memory.readByte(cpu.getPC());
-            cpu.setPC(cpu.getPC() + 1)
-
+            cpu.setPC(cpu.getPC() + 1);
+        
             // convert the unsigned 8-bit value to a signed 8-bit value
             if (e & 0x80) {
-                e = -(~e + 1);
+                e = -((~e + 1) & 0xFF);
             }
+        
             if (cpu.getZ() === 0) {
                 cpu.setPC(cpu.getPC() + e);
             }
@@ -4083,10 +4061,10 @@ class InstructionSet extends CPU {
                     write(SP, lsb(PC))
                     PC = nn
             */
-            const lsbValue = cpu.getPC();
+            const lsbValue = cpu.memory.readByte(cpu.getPC());
             cpu.setPC(cpu.getPC() + 1)
 
-            const msbValue = cpu.getPC();
+            const msbValue = cpu.memory.readByte(cpu.getPC());
             cpu.setPC(cpu.getPC() + 1)
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
@@ -4112,11 +4090,11 @@ class InstructionSet extends CPU {
                    write(SP, lsb(PC))
                    PC = nn
            */
-            const lsbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const lsbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
-            const msbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const msbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
             if (cpu.getZ() === 1) {
@@ -4141,11 +4119,11 @@ class InstructionSet extends CPU {
                   write(SP, lsb(PC))
                   PC = nn
           */
-            const lsbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const lsbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
-            const msbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const msbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
             if (cpu.getC() === 0) {
@@ -4170,11 +4148,11 @@ class InstructionSet extends CPU {
                   write(SP, lsb(PC))
                   PC = nn
           */
-            const lsbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const lsbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
-            const msbValue = cpu.getPC();
-            cpu.setPC(cpu.getPC() + 1)
+            const msbValue = cpu.memory.readByte(cpu.getPC());
+            cpu.setPC(cpu.getPC() + 1);
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
             if (cpu.getC() === 1) {
@@ -4208,12 +4186,10 @@ class InstructionSet extends CPU {
         this.opcodeList.set(0xC9, new Opcode('RET', '', 0xC9, 32, 1, (cpu) => {
             /* PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
           */
-            const lsbValue = cpu.memory.readByte(cpu.getSP());
+            const lsbValue = cpu.getSP();
             cpu.setSP(cpu.getSP() + 1);
-
-            const msbValue = cpu.memory.readByte(cpu.getSP());
+            const msbValue = cpu.getSP();
             cpu.setSP(cpu.getSP() + 1);
-
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
             cpu.setPC(finalValue);
 
@@ -4223,11 +4199,13 @@ class InstructionSet extends CPU {
             /* if F.check_condition(cc):
                 PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
           */
-            let lsbValue = cpu.getSP();
+            const lsbValue = cpu.memory.readByte(cpu.getSP());
             cpu.setSP(cpu.getSP() + 1);
-            let msbValue = cpu.getSP();
+
+            const msbValue = cpu.memory.readByte(cpu.getSP());
             cpu.setSP(cpu.getSP() + 1);
-            let finalValue = (msbValue << 8) | lsbValue;
+
+            const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
             if (cpu.getZ() === 0) {
                 cpu.setCPUCycle(cpu.getCPUCycle() + 20);
                 cpu.setPC(finalValue);
@@ -4240,11 +4218,11 @@ class InstructionSet extends CPU {
             /* if F.check_condition(cc):
                 PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
           */
-            const lsbValue = cpu.getSP();
-            cpu.setSP(cpu.getSP() + 1)
+            const lsbValue = cpu.memory.readByte(cpu.getSP());
+            cpu.setSP(cpu.getSP() + 1);
 
-            const msbValue = cpu.getSP();
-            cpu.setSP(cpu.getSP() + 1)
+            const msbValue = cpu.memory.readByte(cpu.getSP());
+            cpu.setSP(cpu.getSP() + 1);
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
 
@@ -4259,14 +4237,18 @@ class InstructionSet extends CPU {
                 PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
 
           */
+            const lsbValue = cpu.memory.readByte(cpu.getSP());
+            cpu.setSP(cpu.getSP() + 1);
+
+            const msbValue = cpu.memory.readByte(cpu.getSP());
+            cpu.setSP(cpu.getSP() + 1);
+
+            const finalValue = cpu.toUnsigned16Bit(msbValue, lsbValue);
             if (cpu.getC() === 0) {
-                const lsbValue = cpu.memory.readByte(cpu.getSP());
-                cpu.setSP(cpu.getSP() + 1);
-                const msbValue = cpu.memory.readByte(cpu.getSP());
-                cpu.setSP(cpu.getSP() + 1);
-                const finalValue = cpu.toUnsigned16Bit(msbValue, lsbValue);
-                cpu.setPC(finalValue);
                 cpu.setCPUCycle(cpu.getCPUCycle() + 20);
+                cpu.setPC(finalValue);
+            } else {
+                cpu.setCPUCycle(cpu.getCPUCycle() + 8);
             }
 
         }));
@@ -4275,17 +4257,18 @@ class InstructionSet extends CPU {
                 PC = unsigned_16(lsb=read(SP++), msb=read(SP++))
 
           */
-            const lsbValue = cpu.getSP();
+            const lsbValue = cpu.memory.readByte(cpu.getSP());
             cpu.setSP(cpu.getSP() + 1);
 
-            const msbValue = cpu.getSP();
+            const msbValue = cpu.memory.readByte(cpu.getSP());
             cpu.setSP(cpu.getSP() + 1);
 
             const finalValue = cpu.toUnsigned16Bit(lsbValue, msbValue);
 
             if (cpu.getC() === 1) {
-                cpu.setPC(finalValue);
+
                 cpu.setCPUCycle(cpu.getCPUCycle() + 20);
+                cpu.setPC(finalValue);
             }
 
         }));
@@ -4992,10 +4975,10 @@ class InstructionSet extends CPU {
         }));
         this.opcodeList.set(0xCB1B, new Opcode('RR', 'E', 0xCB1B, 16, 1, (cpu) => {
             // Get the least significant bit of the E register
-            let lsb = cpu.getE() & 0x01;
+            let lsb = cpu.getDE() & 0x01;
 
             // Shift the E register to the right by one bit and set the most significant bit to the value of the carry flag
-            let result = (cpu.getE() >> 1) | (cpu.getC() ? 0x80 : 0x00);
+            let result = (cpu.getDE() >> 1) | (cpu.getAF() & 0x80);
 
             // Set the flags register based on the result
             cpu.setZ(result === 0 ? 1 : 0);
@@ -5004,7 +4987,7 @@ class InstructionSet extends CPU {
             cpu.setC(lsb);
 
             // Update the value of the E register
-            cpu.setE(result);
+            cpu.setDE((cpu.getDE() & 0xFF00) | result);
         }));
         this.opcodeList.set(0xCB1C, new Opcode('RR', 'H', 0xCB1C, 16, 1, (cpu) => {
             // Get the least significant bit of the H register
@@ -5905,14 +5888,18 @@ class InstructionSet extends CPU {
     static getInstruction(opcodeValue) {
 
         if (!this.opcodeList.get(opcodeValue)) {
-            throw new Error("Instruction not found: ", opcodeValue);
+
+            throw new Error("Instruction not found");
         }
         return this.opcodeList.get(opcodeValue);
 
 
     }
     static executeInstruction(cpu, instruction) {
+
         cpu.setCPUCycle(cpu.getCPUCycle() + instruction.getOpcodeCycle());
         instruction.executeOn(cpu);
+        console.table("AF: 0x" + (cpu.getAF().toString(16) + "".toUpperCase()) + "\t Z: " + cpu.getZ() + "\nBC: 0x" + (cpu.getBC().toString(16) + "".toUpperCase()) + "\t N: " + cpu.getN() + "\nDE: 0x" + (cpu.getDE().toString(16) + "".toUpperCase()) + "\t H: " + cpu.getH() + "\nHL: 0x" + (cpu.getHL().toString(16) + "".toUpperCase()) + "\t C: " + cpu.getC() + "\nSP: 0x" + (cpu.getSP().toString(16) + "".toUpperCase()) + "\nPC: 0x" + (cpu.getPC().toString(16) + "".toUpperCase()));
+
     }
 }

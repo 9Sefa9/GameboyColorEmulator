@@ -50,11 +50,9 @@ class CPU {
     this.imeScheduled = 0;
 
     //DUMMY DATAS
-    this.instructions = null;
     this.memory = null;
   }
   start() {
-    this.reset();
     document.getElementById("rom").addEventListener('mouseover', (event) => {
       const file = event.target.files[0]; // get the selected file
       const reader = new FileReader(); // create a new FileReader object
@@ -62,21 +60,20 @@ class CPU {
       reader.onload = (e) => { // define the onload event handler
         const arrayBuffer = e.target.result; // get the contents of the file as an ArrayBuffer
         const rom = new Uint8Array(arrayBuffer); // create a new Uint8Array from the ArrayBuffer
-        this.instructions = rom;
         this.memory = new MBC1(rom, 0xFFFF);
         this.startTime = window.performance.now();
         this.raf = requestAnimationFrame(() => this.loop());
       };
       reader.readAsArrayBuffer(file); // read the file as an ArrayBuffer
+      this.reset();
     });
   }
   reset() {
     this.setPC(0x100);
-    this.setAF(0x11);
-    this.setAF((this.getAF() & 0xFF00) | 0xB0);
-    this.setBC(0x0013);
-    this.setDE(0x00D8);
-    this.setHL(0x014D);
+    this.setBC(0x0000);
+    this.setAF(0x1180);
+    this.setDE(0xFF56);
+    this.setHL(0x000D);
     this.setSP(0xFFFE);
   }
   //@TODO cycleCount implementierung ( machine cycle und cycle ..)
@@ -95,9 +92,12 @@ class CPU {
       //Logic
       const opcode = this.fetch();
       const instruction = this.decode(opcode);
-      console.log("MEMLOCPC: ", String(this.instructions[this.getPC()]).toString(16), "| INSTR: ", instruction.getInstruction(), ',', instruction.getParameters(), "| PC: 0x", this.getPC().toString(16), "| SP: 0x", this.getSP().toString(16));
+      console.log("| INSTR: ", instruction.getInstruction(), ',', instruction.getParameters(), "| PC: 0x", this.getPC().toString(16), "| SP: 0x", this.getSP().toString(16));
 
+      this.setPC(this.getPC() + 1);
       this.execute(instruction);
+
+
       //Additional visual helpers
       this.fpsTitle.textContent = `FPS: ${Math.floor((this.frameCount / this.elapsedTime) * 1000)}`;
       this.frameCount = 0;
@@ -105,7 +105,7 @@ class CPU {
       // For Blargs CPU test ( without ppu )
       if (this.memory.readByte(0xFF02) === 0x81) {
         let c = this.memory.readByte(0xFF01);
-        console.log("RESULTS:");
+        console.log("RESULTS-----------------------------------------------------------------------------------------------:");
         console.log(c);
         this.memory.writeByte(0xFF02, 0x0);
       }
@@ -128,12 +128,12 @@ class CPU {
     // Every instruction needs one machine cycle for the fetch stage, and 
     //at least one machine cycle for the decode/execute stage.  1 machine cycle = 8 cycles
     this.setCPUCycle(this.getCPUCycle() + 8);
-    var currentMemoryData = this.instructions[this.getPC()];
-    if(currentMemoryData === 0xCB){
+    let currentMemoryData = this.memory.readByte(this.getPC());
+
+    if (currentMemoryData === 0xCB) {
       this.setPC(this.getPC() + 1);
-      currentMemoryData = (currentMemoryData & 0xFF00) | (this.instructions[this.getPC()] & 0xFF);
+      currentMemoryData = (currentMemoryData & 0xFF00) | (this.memory.readByte(this.getPC()) & 0xFF);
     }
-    this.setPC(this.getPC() + 1);
 
     return currentMemoryData;
   }
@@ -176,14 +176,14 @@ class CPU {
   }
 
   setSP(value) {
-    this.SP = value ;
+    this.SP = value & 0xFFFF;
   }
   getSP() {
     return this.SP;
   }
   //Accumulator
   setAF(value) {
-    this.AF = value;
+    this.AF = value & 0xFFFF;
   }
   getAF() {
     return this.AF;
@@ -225,7 +225,13 @@ class CPU {
    * @param {number} value - The value to set the register to in 0xFFFF format.
    */
   setZ(value) {
-    this.AF = (this.AF & ~(0x80)) | (value << 7);
+    if (value !== 0) {
+      // set Z flag to 1
+      this.setAF(this.getAF() | 0x0080);
+    } else {
+      // set Z flag to 0
+      this.setAF(this.getAF() & 0xFF7F);
+    }
   }
 
   /**
@@ -241,8 +247,15 @@ class CPU {
    * @param {number} value - The value to set the flag to which could has a mask of 0xFFFF
    */
   setN(value) {
-    this.AF = (this.AF & ~(0x40)) | (value << 6);
+    if (value !== 0) {
+      // set N flag to 1
+      this.setAF(this.getAF() | 0x0040);
+    } else {
+      // set N flag to 0
+      this.setAF(this.getAF() & 0xFFBF);
+    }
   }
+  
 
 
   /**
@@ -257,7 +270,13 @@ class CPU {
    * @param {number} value - The value to set the H flag to.
    */
   setH(value) {
-    this.AF = (this.AF & ~(0x20)) | (value << 5);
+    if (value !== 0) {
+      // set H flag to 1
+      this.setAF(this.getAF() | 0x0020);
+    } else {
+      // set H flag to 0
+      this.setAF(this.getAF() & 0xFFDF);
+    }
   }
 
   /**
@@ -272,7 +291,13 @@ class CPU {
    * @param {number} value - The value to set the flag to.
    */
   setC(value) {
-    this.AF = (this.AF & ~(0x10)) | (value << 4);
+    if (value !== 0) {
+      // set C flag to 1
+      this.setAF(this.getAF() | 0x0010);
+    } else {
+      // set C flag to 0
+      this.setAF(this.getAF() & 0xFFEF);
+    }
   }
   /**
    * If the C-flag is greater than 1, throw an error, otherwise return the C-flag.
@@ -284,19 +309,19 @@ class CPU {
 
   //Register  BC, DE and HL
   setBC(value) {
-    this.BC = value;
+    this.BC = value & 0xFFFF;
   }
   getBC() {
     return this.BC;
   }
   setDE(value) {
-    this.DE = value;
+    this.DE = value & 0xFFFF;
   }
   getDE() {
     return this.DE;
   }
   setHL(value) {
-    this.HL = value;
+    this.HL = value & 0xFFFF;
   }
   getHL() {
     return this.HL;
