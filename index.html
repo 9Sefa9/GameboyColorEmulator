@@ -11,17 +11,76 @@
     <title>GameBoy Color Emulator</title>
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="">
-    <link rel="icon" type="image/png" href="/favicon.png"/>
+    <link rel="stylesheet" href="stylesheet.css">
+    <link rel="icon" type="image/png" href="/favicon.png" />
 </head>
 
 <body>
     <!--[if lt IE 7]>
             <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="#">upgrade your browser</a> to improve your experience.</p>
         <![endif]-->
-    <div class="fps" style="position:absolute; bottom: 0; left: 0; font-size: 2rem; color:black;">
-    <input id="rom" type="file" src="./cpu_instrs.gb"></input>
+    <div class="fps" style="position:absolute; bottom: 0; left: 0; font-size: 2rem; color:black;">  
+        <input id="rom" type="file" src="./cpu_instrs.gb"></input>
     </div>
+    <table class="rom-meta-table">
+        <tr>
+            <th>Metadata</th>
+            <th>Value</th>
+        </tr>
+        <tr>
+            <td>Title</td>
+            <td id="Title"></td>
+        </tr>
+        <tr>
+            <td>Manufacturer code</td>
+            <td id="ManufacturerCode"></td>
+        </tr>
+        <tr>
+            <td>CGB flag</td>
+            <td id="CGBFlag"></td>
+        </tr>
+        <tr>
+            <td>New Licensee Code</td>
+            <td id="NewLicenseeCode"></td>
+        </tr>
+        
+        <tr>
+            <td>SGB flag</td>
+            <td id="SGBFlag"></td>
+        </tr>
+        <tr>
+            <td>Cartridge type</td>
+            <td id="CartridgeType"></td>
+        </tr>
+        <tr>
+            <td>ROM size</td>
+            <td id="RomSize"></td>
+        </tr>
+        <tr>
+            <td>RAM size</td>
+            <td id="RamSize"></td>
+        </tr>
+        <tr>
+            <td>Destination code</td>
+            <td id="DestinationCode"></td>
+        </tr>
+        <tr>
+            <td>Old licensee code</td>
+            <td id="OldLicenseeCode"></td>
+        </tr>
+        <tr>
+            <td>Mask ROM version number</td>
+            <td id="MaskROMVersionNumber"></td>
+        </tr>
+        <tr>
+            <td>Header checksum</td>
+            <td id="HeaderChecksum"></td>
+        </tr>
+    </table>
+    <button id="start">Start</button>
+    <button id="pause">Pause</button>
+    <button id="resume">Resume</button>
+    <button id="export-log">Export Log</button>
     <script src="./MBC1.js" type="text/javascript"></script>
     <script src="./Opcode.js" type="text/javascript"></script>
     <script src="./CPU.js" type="text/javascript"></script>

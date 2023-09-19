@@ -22,22 +22,18 @@ const app = http.createServer((req, res) => {
             const message = JSON.parse(body).message;
             const filePath = 'V:\\code\\gameboy-color-emulator\\gameboy-doctor-master\\log6.txt';
 
-            // Überprüfen, ob die Datei existiert, und sie erstellen, wenn sie nicht vorhanden ist
-            if (!fs.existsSync(filePath)) {
-                fs.writeFileSync(filePath, '', 'utf8');
+            // Überprüfen, ob die Datei existiert
+            if (fs.existsSync(filePath)) {
+                // Datei löschen, bevor sie neu erstellt wird
+                fs.unlinkSync(filePath);
             }
 
-            fs.writeFile(filePath, message, { encoding: 'utf8', flag: 'a' }, (err) => {
-                if (err) {
-                    console.error('Fehler beim Schreiben in die Textdatei:', err);
-                    res.statusCode = 500;
-                    res.end('Internal Server Error');
-                } else {
-                    console.log('Nachricht erfolgreich geschrieben.');
-                    res.statusCode = 200;
-                    res.end('OK');
-                }
-            });
+            // Die Datei neu erstellen und die Nachricht hinzufügen
+            fs.writeFileSync(filePath, message, 'utf8');
+
+            console.log('Nachricht erfolgreich geschrieben.');
+            res.statusCode = 200;
+            res.end('OK');
         });
     } else {
         res.statusCode = 404;
