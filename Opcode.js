@@ -1,55 +1,76 @@
 class Opcode {
-    constructor(instruction, parameters, opcode, opcodeCycle, len, logic) {
-        this.instruction = instruction;
-        this.parameters = parameters;
-        this.opcode = opcode;
-        this.opcodeCycle = opcodeCycle;
-        this.len = len;
-        this.logic = logic;
-    }
-    
-    getInstruction() {
-        return this.instruction;
-    }
+  constructor(
+    instruction,
+    parameters,
+    opcode,
+    opcodeCycle,
+    len,
+    handlesPC,
+    logic
+  ) {
+    this.instruction = instruction;
+    this.parameters = parameters;
+    this.opcode = opcode;
+    this.opcodeCycle = opcodeCycle;
+    this.len = len;
+    this.logic = logic;
+    this.handlesPC = handlesPC;
+  }
 
-    setInstruction(value) {
-        this.instruction = value;
-    }
+  getInstruction() {
+    return this.instruction;
+  }
 
-    getParameters() {
-        return this.parameters;
-    }
+  setInstruction(value) {
+    this.instruction = value;
+  }
 
-    setParameters(value) {
-        this.parameters = value;
-    }
+  getParameters() {
+    return this.parameters;
+  }
 
-    getOpcode() {
-        return this.opcode;
-    }
+  setParameters(value) {
+    this.parameters = value;
+  }
 
-    setOpcode(value) {
-        this.opcode = value;
-    }
+  getOpcode() {
+    return this.opcode;
+  }
 
-    getOpcodeCycle() {
-        return this.opcodeCycle;
-    }
+  setOpcode(value) {
+    this.opcode = value;
+  }
 
-    setOpcodeCycle(value) {
-        this.opcodeCycle = value;
-    }
-    setLen(value){
-        this.len = value;
-    }
-    getLen(){
-        return this.len;
-    }
-    executeOn(cpu){
-        this.logic(cpu);
-    }
-    toString(){
-        return "INS:"+this.getInstruction()+" OPCODE: " + this.getOpcode() + " PARAM: " + this.getParameters();
-    }
+  getOpcodeCycle() {
+    return this.opcodeCycle;
+  }
 
+  setOpcodeCycle(value) {
+    this.opcodeCycle = value;
+  }
+  setLen(value) {
+    this.len = value;
+  }
+  getLen() {
+    return this.len;
+  }
+  executeOn(cpu) {
+    this.logic(cpu);
+  }
+  setHandlesPC(value) {
+    this.handlesPC = value;
+  }
+  getHandlesPC() {
+    return this.handlesPC;
+  }
+  toString() {
+    return (
+      "INS:" +
+      this.getInstruction() +
+      " OPCODE: " +
+      this.getOpcode() +
+      " PARAM: " +
+      this.getParameters()
+    );
+  }
 }

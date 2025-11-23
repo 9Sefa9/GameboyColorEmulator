@@ -1,90 +1,161 @@
 class MBC1 {
-  constructor(rom, ramSize) {
+  constructor(rom, ramSize = 0x8000) {
     this.rom = rom;
-    this.ram = new Uint8Array(ramSize);
-    this.wram = new Uint8Array(0x8000); // WRAM bank 0 + Echo RAM
+    this.ram = new Uint8Array(ramSize); // external RAM
+    this.wram = new Uint8Array(0x8000); // 8 Banks à 4KB = 32KB total WRAM
     this.vram = new Uint8Array(0x2000); // VRAM
-    this.zram = new Uint8Array(0x80); // Zero-page RAM
+    this.oam = new Uint8Array(0xa0); // OAM
+    this.ioRegisters = new Uint8Array(0x80); // FF00–FF7F
+    this.zram = new Uint8Array(0x7f); // FF80–FFFE
+    this.interruptEnabled = 0;
 
-    this.ramEnabled = false;
     this.romBank = 1;
     this.ramBank = 0;
     this.mode = 0;
-    this.oam = new Uint8Array(0xA0); // OAM (Object Attribute Memory)
-    this.ioRegisters = new Uint8Array(0x80); // I/O Registers
-    this.interruptEnabled = 0; // Interrupt Enabled Register
+    this.ramEnabled = false;
+
+    // GBC: SVBK Register initialisieren (WRAM Bank Control)
+    this.ioRegisters[0x70] = 0x01; // Start with bank 1
   }
 
-  readByte(address) {
-    
-    //console.log("READ: ADDRESS: ",address.toString(16));
-    if (address <= 0x3FFF) {
-      return this.rom[address];
-    } else if (address >= 0x4000 && address <= 0x7FFF) {
-      const bankOffset = (this.mode === 0) ? 0x4000 : ((this.romBank - 1) & 0x1F) * 0x4000;
-      return this.rom[bankOffset + (address - 0x4000)];
-    } else if (address >= 0xA000 && address <= 0xBFFF) {
-      if (this.ramEnabled) {
-        return this.ram[this.ramBank * 0x2000 + (address - 0xA000)];
-      } else {
-        return 0xFF;
-      }
-    } else if (address === 0xFF44) {
-      return 0x90;
-    } else if (address >= 0xC000 && address <= 0xDFFF) {
-      return this.wram[address - 0xC000]; // Read from WRAM bank 0 + Echo RAM
-    } else if (address >= 0xE000 && address <= 0xFDFF) {
-      return this.wram[address - 0xE000]; // Read from Echo RAM
-    } else if (address >= 0xFE00 && address <= 0xFE9F) {
-      return this.oam[address - 0xFE00]; // Read from OAM
-    } else if (address >= 0x9800 && address <= 0x9BFF) {
-      return this.vram[address - 0x9800];
-    } else if (address >= 0xFF00 && address <= 0xFF7F) {
-      return this.ioRegisters[address - 0xFF00]; // Read from I/O Registers
-    } else if (address >= 0xFF80 && address <= 0xFFFE) {
-      return this.zram[address - 0xFF80]; // Read from Zero-page RAM
-    } else if (address === 0xFFFF) {
-      return this.interruptEnabled; // Read from Interrupt Enabled Register
-    } else {
+  readByte(address, cpu = null) {
+    if (address > 0xffff) {
+      console.error(
+        `MBC1 READ out of range: 0x${address.toString(16)} PC: ${
+          cpu ? cpu.getPC().toString(16) : "unknown"
+        }`
+      );
       throw new Error(`Address out of range: 0x${address.toString(16)}`);
     }
+
+    if (address === 0xff44) return 0x90; // TEMP workaround
+
+    let value;
+    if (address <= 0x3fff) {
+      const bank0 = this.mode === 0 ? 0 : (this.romBank & 0x60) >> 5;
+      value = this.rom[bank0 * 0x4000 + address];
+    } else if (address <= 0x7fff) {
+      let bank = this.romBank & 0x7f;
+      if ((bank & 0x1f) === 0) bank |= 1;
+      bank %= this.rom.length / 0x4000;
+      value = this.rom[bank * 0x4000 + (address - 0x4000)];
+    } else if (address <= 0x9fff) {
+      value = this.vram[address - 0x8000];
+    } else if (address <= 0xbfff) {
+      if (!this.ramEnabled || this.ram.length === 0) value = 0xff;
+      else {
+        const bank = this.mode === 0 ? 0 : this.ramBank & 3;
+        value = this.ram[bank * 0x2000 + (address - 0xa000)];
+      }
+    } else if (address <= 0xdfff) {
+      const offset = address - 0xc000;
+      if (address < 0xd000) {
+        // 0xC000-0xCFFF: Fixed WRAM Bank 0
+        value = this.wram[offset];
+      } else {
+        // 0xD000-0xDFFF: Switchable WRAM Bank 1-7 (GBC)
+        let bank = this.ioRegisters[0x70] & 0x07;
+        if (bank === 0) bank = 1; // Bank 0 not allowed, becomes bank 1
+        value = this.wram[bank * 0x1000 + (offset - 0x1000)];
+      }
+    } else if (address >= 0xe000 && address <= 0xfdff) {
+      value = this.readByte(address - 0x2000, cpu);
+    } else if (address <= 0xfe9f) {
+      value = this.oam[address - 0xfe00];
+    } else if (address <= 0xff7f) {
+      const idx = address - 0xff00;
+      value = idx >= 0x80 ? 0xff : this.ioRegisters[idx];
+    } else if (address <= 0xfffe) {
+      const idx = address - 0xff80;
+      value = idx >= 0x7f ? 0xff : this.zram[idx];
+    } else if (address === 0xffff) {
+      value = this.interruptEnabled;
+    } else {
+      console.error(`MBC1 READ invalid address: 0x${address.toString(16)}`);
+      throw new Error(`Address out of range: 0x${address.toString(16)}`);
+    }
+
+    if (cpu && address >= 0xDD00 && address <= 0xDDFF) {
+      console.log(
+        `MBC1 READ WRAM: 0x${address.toString(16)} => 0x${value.toString(
+          16
+        )} bank:${this.ioRegisters[0x70] & 0x07} PC: 0x${cpu.getPC().toString(16)}`
+      );
+    }
+    return value;
   }
 
-  writeByte(address, value) {
-    //console.log("WRITE: ADDRESS: ",address.toString(16),"; VALUE: ",value.toString(16));
-    if (address <= 0x1FFF) {
-      this.ramEnabled = (value & 0x0F) === 0x0A;
-    } else if (address >= 0x2000 && address <= 0x3FFF) {
-      this.romBank = (this.romBank & 0x60) | (value & 0x1F);
-      if (this.romBank === 0x00 || this.romBank === 0x20 || this.romBank === 0x40 || this.romBank === 0x60) {
-        this.romBank++;
-      }
-    } else if (address >= 0x4000 && address <= 0x5FFF) {
-      if (this.mode === 0) {
-        this.ramBank = value & 0x03;
-      } else {
-        this.romBank = (this.romBank & 0x1F) | ((value & 0x03) << 5);
-      }
-    } else if (address >= 0x6000 && address <= 0x7FFF) {
-      this.mode = value & 0x01;
-    } else if (address >= 0xA000 && address <= 0xBFFF && this.ramEnabled) {
-      this.ram[this.ramBank * 0x2000 + (address - 0xA000)] = value;
-    } else if (address >= 0xC000 && address <= 0xDFFF) {
-      this.wram[address - 0xC000] = value; // Write to WRAM bank 0 + Echo RAM
-    } else if (address >= 0xE000 && address <= 0xFDFF) {
-      this.wram[address - 0xE000] = value; // Write to Echo RAM
-    } else if (address >= 0xFE00 && address <= 0xFE9F) {
-      this.oam[address - 0xFE00] = value; // Write to OAM
-    } else if (address >= 0x9800 && address <= 0x9BFF) {
-      this.vram[address - 0x9800] = value;
-    } else if (address >= 0xFF00 && address <= 0xFF7F) {
-      this.ioRegisters[address - 0xFF00] = value; // Write to I/O Registers
-    } else if (address >= 0xFF80 && address <= 0xFFFE) {
-      this.zram[address - 0xFF80] = value; // Write to Zero-page RAM
-    } else if (address === 0xFFFF) {
-      this.interruptEnabled = value; // Write to Interrupt Enabled Register
-    } else {
+  writeByte(address, value, cpu = null) {
+    if (address > 0xffff) {
+      console.error(
+        `MBC1 WRITE out of range: 0x${address.toString(
+          16
+        )} value: 0x${value.toString(16)} PC: ${
+          cpu ? cpu.getPC().toString(16) : "unknown"
+        }`
+      );
       throw new Error(`Address out of range: 0x${address.toString(16)}`);
+    }
+
+    if (address <= 0x1fff) {
+      this.ramEnabled = (value & 0x0f) === 0x0a;
+    } else if (address <= 0x3fff) {
+      let lower5 = value & 0x1f;
+      if (lower5 === 0) lower5 = 1;
+      this.romBank = (this.romBank & 0x60) | lower5;
+    } else if (address <= 0x5fff) {
+      const upper2 = value & 3;
+      if (this.mode === 0) this.romBank = (this.romBank & 0x1f) | (upper2 << 5);
+      else this.ramBank = upper2;
+    } else if (address <= 0x7fff) {
+      this.mode = value & 1;
+    } else if (address <= 0x9fff) {
+      this.vram[address - 0x8000] = value;
+    } else if (address <= 0xbfff && this.ramEnabled) {
+      const bank = this.mode === 0 ? 0 : this.ramBank & 3;
+      this.ram[bank * 0x2000 + (address - 0xa000)] = value;
+    } else if (address <= 0xdfff) {
+      const offset = address - 0xc000;
+      if (address < 0xd000) {
+        // 0xC000-0xCFFF: Fixed WRAM Bank 0
+        this.wram[offset] = value;
+      } else {
+        // 0xD000-0xDFFF: Switchable WRAM Bank 1-7 (GBC)
+        let bank = this.ioRegisters[0x70] & 0x07;
+        if (bank === 0) bank = 1; // Bank 0 not allowed, becomes bank 1
+        this.wram[bank * 0x1000 + (offset - 0x1000)] = value;
+      }
+    } else if (address >= 0xe000 && address <= 0xfdff) {
+      this.writeByte(address - 0x2000, value, cpu);
+    } else if (address <= 0xfe9f) {
+      this.oam[address - 0xfe00] = value;
+    } else if (address <= 0xff7f) {
+      const idx = address - 0xff00;
+      if (idx < 0x80) {
+        // Special handling for SVBK register (0xFF70)
+        if (idx === 0x70) {
+          // SVBK - WRAM Bank Control (only bits 0-2 are used)
+          this.ioRegisters[idx] = value & 0x07;
+        } else {
+          this.ioRegisters[idx] = value;
+        }
+      }
+    } else if (address <= 0xfffe) {
+      const idx = address - 0xff80;
+      if (idx < 0x7f) this.zram[idx] = value;
+    } else if (address === 0xffff) {
+      this.interruptEnabled = value;
+    } else {
+      console.error(`MBC1 WRITE invalid address: 0x${address.toString(16)}`);
+      throw new Error(`Address out of range: 0x${address.toString(16)}`);
+    }
+
+    if (cpu && address >= 0xDD00 && address <= 0xDDFF) {
+      console.log(
+        `MBC1 WRITE WRAM: 0x${address.toString(16)} <= 0x${value.toString(
+          16
+        )} bank:${this.ioRegisters[0x70] & 0x07} PC: 0x${cpu.getPC().toString(16)}`
+      );
     }
   }
 }

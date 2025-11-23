@@ -1,5 +1,6 @@
+/* The `CPU` class represents a CPU with registers, flags, timers, and methods for executing
+instructions in a GameBoy Color emulator. */
 class CPU {
-
   constructor() {
     //Registers
     this.BC = 0; //16 bit register
@@ -10,7 +11,8 @@ class CPU {
     this.i = 0;
     this.AF = 0; //Accumulator 8 bit and Flags 8 bit = 16 bit register
     this.log = "";
-    //Flags 
+    this.cbModeActive = false; //To indicate if the next fetched opcode is from CB prefix
+    //Flags
     // 7 6 5 4 3 2 1 0
     // Z N H C 0 0 0 0
 
@@ -40,7 +42,7 @@ class CPU {
     this.currentTime = 0;
     this.elapsedTime = 0;
     this.frameCount = 0;
-    this.fpsTitle = document.querySelector('.fps');
+    this.fpsTitle = document.querySelector(".fps");
 
     //Cycle which is 8 since 1 Machine cycle represents 8 cycle in GameBoy Color
     this.cycle = 0;
@@ -58,11 +60,12 @@ class CPU {
       const file = document.getElementById("rom").files[0]; // get the selected file
       const reader = new FileReader(); // create a new FileReader object
 
-      reader.onload = (e) => { // define the onload event handler
+      reader.onload = (e) => {
+        // define the onload event handler
         const arrayBuffer = e.target.result; // get the contents of the file as an ArrayBuffer
         const rom = new Uint8Array(arrayBuffer); // create a new Uint8Array from the ArrayBuffer
-        this.memory = new MBC1(rom, 0xFFFF);
-
+        this.memory = new MBC1(rom, 0x8000);
+        // this.memory = new NoMBC(rom, 0x8000);
         this.setTitle();
         this.setManufacturerCode();
         this.setCGBFlag();
@@ -76,8 +79,9 @@ class CPU {
         this.setMaskROMVersionNumber();
         this.setHeaderChecksum();
 
-        this.startTime = window.performance.now();
-        this.raf = requestAnimationFrame(() => this.loop());
+        // this.startTime = window.performance.now();
+        // this.raf = requestAnimationFrame(() => this.loop());
+        this.loop();
       };
       reader.readAsArrayBuffer(file); // read the file as an ArrayBuffer
       this.reset();
@@ -85,31 +89,29 @@ class CPU {
 
     document.getElementById("pause").onclick = () => {
       console.log("PAUSE");
-      this.stopLoop()
+      this.stopLoop();
     };
 
     document.getElementById("resume").onclick = () => {
       console.log("RESUME");
-      this.startTime = window.performance.now();
-      this.raf = requestAnimationFrame(() => this.loop());
+      // this.startTime = window.performance.now();
+      // this.raf = requestAnimationFrame(() => this.loop());
     };
 
     document.getElementById("export-log").onclick = () => {
       console.log("EXPORT LOG");
-      fetch('http://localhost:3000/logs', {
-        method: 'POST',
+      fetch("http://localhost:3000/logs", {
+        method: "POST",
         body: JSON.stringify({
-          message: this.log
+          message: this.log,
         }),
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
     };
-
   }
   reset() {
-
     // this.setPC(0x0208);
     // this.setAF(0x0010)
     // this.setBC(0x0108);
@@ -117,82 +119,88 @@ class CPU {
     // this.setHL(0x4819);
     // this.setSP(0xFFFE);
 
+    this.setAF(0x01b0); // A=0x01, F=B0
+    this.setBC(0x0013); // Test-ROM erwartet B=0?
+    this.setDE(0x00d8);
+    this.setHL(0x014d);
     this.setPC(0x0100);
-    this.setA(0x01);
-    this.setBC(0x0013);
-    this.setDE(0x00D8);
-    this.setHL(0x014D);
-    this.setSP(0xFFFE);
+    this.setSP(0xfffe);
 
-    this.setZFlag(1);
-    this.setHFlag(1);
-    this.setCFlag(1);
-
-
-
+    // this.setZFlag(1);
+    // this.setHFlag(1);
+    // this.setCFlag(1);
   }
   //@TODO cycleCount implementierung ( machine cycle und cycle ..)
   loop() {
+    while (true) {
+      this.frameCount++;
+      this.currentTime = window.performance.now();
+      this.elapsedTime = this.currentTime - this.startTime;
 
-    this.frameCount++;
-    this.currentTime = window.performance.now();
-    this.elapsedTime = this.currentTime - this.startTime;
-
-    if (this.elapsedTime >= 11.72) {
-      this.stopLoop();
-      this.startTime = this.currentTime;
-      //this.wait();
+      this.wait();
+      this.log +=
+        "A:" +
+        this.getA().toString(16).padStart(2, "0").toUpperCase() +
+        " F:" +
+        this.getF().toString(16).padStart(2, "0").toUpperCase() +
+        " B:" +
+        this.getB().toString(16).padStart(2, "0").toUpperCase() +
+        " C:" +
+        this.getC().toString(16).padStart(2, "0").toUpperCase() +
+        " D:" +
+        this.getD().toString(16).padStart(2, "0").toUpperCase() +
+        " E:" +
+        this.getE().toString(16).padStart(2, "0").toUpperCase() +
+        " H:" +
+        this.getH().toString(16).padStart(2, "0").toUpperCase() +
+        " L:" +
+        this.getL().toString(16).padStart(2, "0").toUpperCase() +
+        " SP:" +
+        this.getSP().toString(16).padStart(4, "0").toUpperCase() +
+        " PC:" +
+        this.getPC().toString(16).padStart(4, "0").toUpperCase() +
+        " PCMEM:" +
+        this.memory
+          .readByte(this.getPC())
+          ?.toString(16)
+          .padStart(2, "0")
+          .toUpperCase() +
+        "," +
+        this.memory
+          .readByte(this.getPC() + 1)
+          ?.toString(16)
+          .padStart(2, "0")
+          .toUpperCase() +
+        "," +
+        this.memory
+          .readByte(this.getPC() + 2)
+          ?.toString(16)
+          .padStart(2, "0")
+          .toUpperCase() +
+        "," +
+        this.memory
+          .readByte(this.getPC() + 3)
+          ?.toString(16)
+          .padStart(2, "0")
+          .toUpperCase() +
+        "\n";
       const opcode = this.fetch();
       const instruction = this.decode(opcode);
 
-      this.log += (
-        "A:" + this.getA().toString(16).padStart(2, "0").toUpperCase() +
-        " F:" + this.getF().toString(16).padStart(2, "0").toUpperCase() +
-        " B:" + this.getB().toString(16).padStart(2, "0").toUpperCase() +
-        " C:" + this.getC().toString(16).padStart(2, "0").toUpperCase() +
-        " D:" + this.getD().toString(16).padStart(2, "0").toUpperCase() +
-        " E:" + this.getE().toString(16).padStart(2, "0").toUpperCase() +
-        " H:" + ((this.getHL() >> 8) & 0xFF).toString(16).padStart(2, "0").toUpperCase() +
-        " L:" + this.getL().toString(16).padStart(2, "0").toUpperCase() +
-        " SP:" + this.getSP().toString(16).padStart(4, "0").toUpperCase() +
-        " PC:" + this.getPC().toString(16).padStart(4, "0").toUpperCase() +
-        " PCMEM:" + this.memory.readByte(this.getPC()).toString(16).padStart(2, "0").toUpperCase() +
-        "," + this.memory.readByte(this.getPC() + 1)?.toString(16).padStart(2, "0").toUpperCase() +
-        "," + this.memory.readByte(this.getPC() + 2)?.toString(16).padStart(2, "0").toUpperCase() +
-        "," + this.memory.readByte(this.getPC() + 3)?.toString(16).padStart(2, "0").toUpperCase()
-      ) + "\n";
-       this.i+=1;
-       if(this.i === 31000){
-        console.log("I",this.i);
-       }
-        // console.log(
-        //   "INDEX: " + this.i +
-        //   "A:" + this.getA().toString(16).padStart(2, "0").toUpperCase() +
-        //   " F:" + this.getF().toString(16).padStart(2, "0").toUpperCase() +
-        //   " B:" + this.getB().toString(16).padStart(2, "0").toUpperCase() +
-        //   " C:" + this.getC().toString(16).padStart(2, "0").toUpperCase() +
-        //   " D:" + this.getD().toString(16).padStart(2, "0").toUpperCase() +
-        //   " E:" + this.getE().toString(16).padStart(2, "0").toUpperCase() +
-        //   " H:" + ((this.getHL() >> 8) & 0xFF).toString(16).padStart(2, "0").toUpperCase() +
-        //   " L:" + this.getL().toString(16).padStart(2, "0").toUpperCase() +
-        //   " SP:" + this.getSP().toString(16).padStart(4, "0").toUpperCase() +
-        //   " PC:" + this.getPC().toString(16).padStart(4, "0").toUpperCase() +
-        //   " PCMEM:" + this.memory.readByte(this.getPC()).toString(16).padStart(2, "0").toUpperCase() +
-        //   "," + this.memory.readByte(this.getPC() + 1)?.toString(16).padStart(2, "0").toUpperCase() +
-        //   "," + this.memory.readByte(this.getPC() + 2)?.toString(16).padStart(2, "0").toUpperCase() +
-        //   "," + this.memory.readByte(this.getPC() + 3)?.toString(16).padStart(2, "0").toUpperCase()
-        // );
-      this.PC += 1;
+      this.i += 1;
+      
       this.execute(instruction);
-
-
+      if (!instruction.getHandlesPC()) {
+        this.increasePC(instruction.getLen());
+      }
       //Additional visual helpers
-      this.fpsTitle.textContent = `FPS: ${Math.floor((this.frameCount / this.elapsedTime) * 1000)}`;
+      // this.fpsTitle.textContent = `FPS: ${Math.floor(
+      //   (this.frameCount / this.elapsedTime) * 1000
+      // )}`;
       this.frameCount = 0;
-
     }
 
-    this.raf = requestAnimationFrame(() => this.loop());
+    //this.raf = requestAnimationFrame(() => this.loop());
   }
   stopLoop() {
     if (this.raf) {
@@ -200,76 +208,86 @@ class CPU {
       this.raf = undefined;
     }
   }
-  //The instruction cycle consists of four phases: fetching an instruction from memory and 
+  //The instruction cycle consists of four phases: fetching an instruction from memory and
   fetch() {
-
-    // Every instruction needs one machine cycle for the fetch stage, and 
+    // Every instruction needs one machine cycle for the fetch stage, and
     //at least one machine cycle for the decode/execute stage.  1 machine cycle = 8 cycles
     this.cycle += 8;
     let currentMemoryData = this.memory.readByte(this.PC);
-
     // For Blargs CPU test ( without ppu )
-    if (this.memory.readByte(0xFF02) === 0x81) {
-      let c = this.memory.readByte(0xFF01);
-      console.log("RESULTS-----------------------------------------------------------------------------------------------:");
-      console.log(c);
-      this.memory.writeByte(0xFF02, 0x0);
+    if (this.memory.readByte(0xff02) === 0x81) {
+      let c = this.memory.readByte(0xff01);
+      const outputEl = document.getElementById("serialOutput");
+      outputEl.textContent += String.fromCharCode(c); // oder += c;
+      this.memory.writeByte(0xff02, 0x0);
     }
 
-    if (currentMemoryData === 0xCB) {
-      this.PC += 1;
-      currentMemoryData = (currentMemoryData & 0xFF00) | (this.memory.readByte(this.getPC()) & 0xFF);
+    if (currentMemoryData === 0xcb) {
+      this.increasePC(1);
+      this.cbModeActive = true;
+      currentMemoryData = this.memory.readByte(this.PC);
+    } else {
+      this.cbModeActive = false;
     }
 
     return currentMemoryData;
   }
   //decoding the fetched instruction, reading the address from memory...
   decode(opcode) {
-
     this.increaseCPUCycle(8);
-    return InstructionSet.getInstruction(opcode);
 
+    if (this.cbModeActive) {
+      this.cbModeActive = false;
+      return InstructionSet.getCBInstruction(opcode);
+    }
+
+    return InstructionSet.getInstruction(opcode);
   }
-  //and finally, instruction execution. 
+  //and finally, instruction execution.
   execute(instruction) {
     this.increaseCPUCycle(8);
     InstructionSet.executeInstruction(this, instruction);
   }
   wait() {
     // let currentCPUCycle = this.getCPUCycle();
-    while (this.getCPUCycle() > 0) {
+    while (this.getCPUCycle() * 1000 > 0) {
       this.decreaseCPUCycle(1);
     }
   }
 
   //Meta-Data settings:
   setTitle() {
-    for (let i = 0x134; i <= 0x13E; i++) {
-      document.getElementById("Title").textContent += String.fromCharCode(this.memory.readByte(i));
+    for (let i = 0x134; i <= 0x13e; i++) {
+      document.getElementById("Title").textContent += String.fromCharCode(
+        this.memory.readByte(i)
+      );
     }
   }
   setManufacturerCode() {
-    for (let i = 0x13F; i <= 0x142; i++) {
-      document.getElementById("ManufacturerCode").textContent += String.fromCharCode(this.memory.readByte(i));
+    for (let i = 0x13f; i <= 0x142; i++) {
+      document.getElementById("ManufacturerCode").textContent +=
+        String.fromCharCode(this.memory.readByte(i));
     }
   }
   setCGBFlag() {
     const byte = this.memory.readByte(0x143);
     if (byte === 0x80) {
-
-      document.getElementById("CGBFlag").textContent = "The game supports CGB enhancements, but is backwards compatible with monochrome Game Boys"
-    }
-    else if (byte === 0xC0) {
-      document.getElementById("CGBFlag").textContent = "The game works on CGB only (the hardware ignores bit 6, so this really functions the same as $80)"
+      document.getElementById("CGBFlag").textContent =
+        "The game supports CGB enhancements, but is backwards compatible with monochrome Game Boys";
+    } else if (byte === 0xc0) {
+      document.getElementById("CGBFlag").textContent =
+        "The game works on CGB only (the hardware ignores bit 6, so this really functions the same as $80)";
     }
   }
   setNewLicenseeCode() {
     for (let i = 0x144; i <= 0x145; i++) {
-      document.getElementById("NewLicenseeCode").textContent += String.fromCharCode(this.memory.readByte(i));
+      document.getElementById("NewLicenseeCode").textContent +=
+        String.fromCharCode(this.memory.readByte(i));
     }
   }
   setSGBflag() {
-    document.getElementById("SGBFlag").textContent = this.memory.readByte(0x146);
+    document.getElementById("SGBFlag").textContent =
+      this.memory.readByte(0x146);
   }
   setCartridgeType() {
     const byte = this.memory.readByte(0x147);
@@ -308,19 +326,19 @@ class CPU {
         cartridgeType = "ROM+RAM+BATTERY 1";
         break;
       }
-      case 0x0B: {
+      case 0x0b: {
         cartridgeType = "MMM01";
         break;
       }
-      case 0x0C: {
+      case 0x0c: {
         cartridgeType = "MMM01+RAM";
         break;
       }
-      case 0x0D: {
+      case 0x0d: {
         cartridgeType = "MMM01+RAM+BATTERY";
         break;
       }
-      case 0x0F: {
+      case 0x0f: {
         cartridgeType = "MBC3+TIMER+BATTERY";
         break;
       }
@@ -344,23 +362,23 @@ class CPU {
         cartridgeType = "MBC5";
         break;
       }
-      case 0x1A: {
+      case 0x1a: {
         cartridgeType = "MBC5+RAM";
         break;
       }
-      case 0x1B: {
+      case 0x1b: {
         cartridgeType = "MBC5+RAM+BATTERY";
         break;
       }
-      case 0x1C: {
+      case 0x1c: {
         cartridgeType = "MBC5+RUMBLE";
         break;
       }
-      case 0x1D: {
+      case 0x1d: {
         cartridgeType = "MBC5+RUMBLE+RAM";
         break;
       }
-      case 0x1E: {
+      case 0x1e: {
         cartridgeType = "MBC5+RUMBLE+RAM+BATTERY";
         break;
       }
@@ -372,19 +390,19 @@ class CPU {
         cartridgeType = "MBC7+SENSOR+RUMBLE+RAM+BATTERY";
         break;
       }
-      case 0xFC: {
+      case 0xfc: {
         cartridgeType = "POCKET CAMERA";
         break;
       }
-      case 0xFD: {
+      case 0xfd: {
         cartridgeType = "BANDAI TAMA5";
         break;
       }
-      case 0xFE: {
+      case 0xfe: {
         cartridgeType = "HuC3";
         break;
       }
-      case 0xFF: {
+      case 0xff: {
         cartridgeType = "HuC1+RAM+BATTERY";
         break;
       }
@@ -488,16 +506,16 @@ class CPU {
     document.getElementById("RamSize").textContent = sramSize;
   }
   setDestinationCode() {
-    const byte = this.memory.readByte(0x14A);
+    const byte = this.memory.readByte(0x14a);
     if (byte === 0x00) {
-      document.getElementById("DestinationCode").textContent = "Japan (and possibly overseas)"
-    }
-    else if (byte === 0x01) {
-      document.getElementById("DestinationCode").textContent = "Overseas only"
+      document.getElementById("DestinationCode").textContent =
+        "Japan (and possibly overseas)";
+    } else if (byte === 0x01) {
+      document.getElementById("DestinationCode").textContent = "Overseas only";
     }
   }
   setOldLicenseeCode() {
-    const byte = this.memory.readByte(0x14B);
+    const byte = this.memory.readByte(0x14b);
     let licenseeCode = "";
 
     switch (byte) {
@@ -517,15 +535,15 @@ class CPU {
         licenseeCode = "Hot-B";
         break;
       }
-      case 0x0A: {
+      case 0x0a: {
         licenseeCode = "Jaleco";
         break;
       }
-      case 0x0B: {
+      case 0x0b: {
         licenseeCode = "Coconuts Japan";
         break;
       }
-      case 0x0C: {
+      case 0x0c: {
         licenseeCode = "Elite Systems";
         break;
       }
@@ -541,15 +559,15 @@ class CPU {
         licenseeCode = "ITC Entertainment";
         break;
       }
-      case 0x1A: {
+      case 0x1a: {
         licenseeCode = "Yanoman";
         break;
       }
-      case 0x1D: {
+      case 0x1d: {
         licenseeCode = "Japan Clary";
         break;
       }
-      case 0x1F: {
+      case 0x1f: {
         licenseeCode = "Virgin Interactive";
         break;
       }
@@ -601,11 +619,11 @@ class CPU {
         licenseeCode = "Banpresto";
         break;
       }
-      case 0x3C: {
+      case 0x3c: {
         licenseeCode = "Entertainment i";
         break;
       }
-      case 0x3E: {
+      case 0x3e: {
         licenseeCode = "Gremlin";
         break;
       }
@@ -633,15 +651,15 @@ class CPU {
         licenseeCode = "Irem";
         break;
       }
-      case 0x4A: {
+      case 0x4a: {
         licenseeCode = "Virgin Interactive";
         break;
       }
-      case 0x4D: {
+      case 0x4d: {
         licenseeCode = "Malibu";
         break;
       }
-      case 0x4F: {
+      case 0x4f: {
         licenseeCode = "U.S. Gold";
         break;
       }
@@ -681,19 +699,19 @@ class CPU {
         licenseeCode = "Milton Bradley";
         break;
       }
-      case 0x5A: {
+      case 0x5a: {
         licenseeCode = "Mindscape";
         break;
       }
-      case 0x5B: {
+      case 0x5b: {
         licenseeCode = "Romstar";
         break;
       }
-      case 0x5C: {
+      case 0x5c: {
         licenseeCode = "Naxat Soft";
         break;
       }
-      case 0x5D: {
+      case 0x5d: {
         licenseeCode = "Tradewest";
         break;
       }
@@ -713,11 +731,11 @@ class CPU {
         licenseeCode = "EA (Electronic Arts)";
         break;
       }
-      case 0x6E: {
+      case 0x6e: {
         licenseeCode = "Elite Systems";
         break;
       }
-      case 0x6F: {
+      case 0x6f: {
         licenseeCode = "Electro Brain";
         break;
       }
@@ -749,15 +767,15 @@ class CPU {
         licenseeCode = "Accolade";
         break;
       }
-      case 0x7A: {
+      case 0x7a: {
         licenseeCode = "Triffix Entertainment";
         break;
       }
-      case 0x7C: {
+      case 0x7c: {
         licenseeCode = "Microprose";
         break;
       }
-      case 0x7F: {
+      case 0x7f: {
         licenseeCode = "Kemco";
         break;
       }
@@ -773,19 +791,19 @@ class CPU {
         licenseeCode = "Tokuma Shoten Intermedia";
         break;
       }
-      case 0x8B: {
+      case 0x8b: {
         licenseeCode = "Bullet-Proof Software";
         break;
       }
-      case 0x8C: {
+      case 0x8c: {
         licenseeCode = "Vic Tokai";
         break;
       }
-      case 0x8E: {
+      case 0x8e: {
         licenseeCode = "Ape";
         break;
       }
-      case 0x8F: {
+      case 0x8f: {
         licenseeCode = "I’Max";
         break;
       }
@@ -817,275 +835,275 @@ class CPU {
         licenseeCode = "Arc";
         break;
       }
-      case 0x9A: {
+      case 0x9a: {
         licenseeCode = "Nihon Bussan";
         break;
       }
-      case 0x9B: {
+      case 0x9b: {
         licenseeCode = "Tecmo";
         break;
       }
-      case 0x9C: {
+      case 0x9c: {
         licenseeCode = "Imagineer";
         break;
       }
-      case 0x9D: {
+      case 0x9d: {
         licenseeCode = "Banpresto";
         break;
       }
-      case 0x9F: {
+      case 0x9f: {
         licenseeCode = "Nova";
         break;
       }
-      case 0xA1: {
+      case 0xa1: {
         licenseeCode = "Hori Electric";
         break;
       }
-      case 0xA2: {
+      case 0xa2: {
         licenseeCode = "Bandai";
         break;
       }
-      case 0xA4: {
+      case 0xa4: {
         licenseeCode = "Konami";
         break;
       }
-      case 0xA6: {
+      case 0xa6: {
         licenseeCode = "Kawada";
         break;
       }
-      case 0xA7: {
+      case 0xa7: {
         licenseeCode = "Takara";
         break;
       }
-      case 0xA9: {
+      case 0xa9: {
         licenseeCode = "Technos Japan";
         break;
       }
-      case 0xAA: {
+      case 0xaa: {
         licenseeCode = "Broderbund";
         break;
       }
-      case 0xAC: {
+      case 0xac: {
         licenseeCode = "Toei Animation";
         break;
       }
-      case 0xAD: {
+      case 0xad: {
         licenseeCode = "Toho";
         break;
       }
-      case 0xAF: {
+      case 0xaf: {
         licenseeCode = "Namco";
         break;
       }
-      case 0xB0: {
+      case 0xb0: {
         licenseeCode = "acclaim";
         break;
       }
-      case 0xB1: {
+      case 0xb1: {
         licenseeCode = "ASCII or Nexsoft";
         break;
       }
-      case 0xB2: {
+      case 0xb2: {
         licenseeCode = "Bandai";
         break;
       }
-      case 0xB4: {
+      case 0xb4: {
         licenseeCode = "Square Enix";
         break;
       }
-      case 0xB6: {
+      case 0xb6: {
         licenseeCode = "HAL Laboratory";
         break;
       }
-      case 0xB7: {
+      case 0xb7: {
         licenseeCode = "SNK";
         break;
       }
-      case 0xB9: {
+      case 0xb9: {
         licenseeCode = "Pony Canyon";
         break;
       }
-      case 0xBA: {
+      case 0xba: {
         licenseeCode = "Culture Brain";
         break;
       }
-      case 0xBB: {
+      case 0xbb: {
         licenseeCode = "Sunsoft";
         break;
       }
-      case 0xBD: {
+      case 0xbd: {
         licenseeCode = "Sony Imagesoft";
         break;
       }
-      case 0xBF: {
+      case 0xbf: {
         licenseeCode = "Sammy";
         break;
       }
-      case 0xC0: {
+      case 0xc0: {
         licenseeCode = "Taito";
         break;
       }
-      case 0xC2: {
+      case 0xc2: {
         licenseeCode = "Kemco";
         break;
       }
-      case 0xC3: {
+      case 0xc3: {
         licenseeCode = "Squaresoft";
         break;
       }
-      case 0xC4: {
+      case 0xc4: {
         licenseeCode = "Tokuma Shoten Intermedia";
         break;
       }
-      case 0xC5: {
+      case 0xc5: {
         licenseeCode = "Data East";
         break;
       }
-      case 0xC6: {
+      case 0xc6: {
         licenseeCode = "Tonkinhouse";
         break;
       }
-      case 0xC8: {
+      case 0xc8: {
         licenseeCode = "Koei";
         break;
       }
-      case 0xC9: {
+      case 0xc9: {
         licenseeCode = "UFL";
         break;
       }
-      case 0xCA: {
+      case 0xca: {
         licenseeCode = "Ultra";
         break;
       }
-      case 0xCB: {
+      case 0xcb: {
         licenseeCode = "Vap";
         break;
       }
-      case 0xCC: {
+      case 0xcc: {
         licenseeCode = "Use Corporation";
         break;
       }
-      case 0xCD: {
+      case 0xcd: {
         licenseeCode = "Meldac";
         break;
       }
-      case 0xCE: {
+      case 0xce: {
         licenseeCode = "Pony Canyon";
         break;
       }
-      case 0xCF: {
+      case 0xcf: {
         licenseeCode = "Angel";
         break;
       }
-      case 0xD0: {
+      case 0xd0: {
         licenseeCode = "Taito";
         break;
       }
-      case 0xD1: {
+      case 0xd1: {
         licenseeCode = "Sofel";
         break;
       }
-      case 0xD2: {
+      case 0xd2: {
         licenseeCode = "Quest";
         break;
       }
-      case 0xD3: {
+      case 0xd3: {
         licenseeCode = "Sigma Enterprises";
         break;
       }
-      case 0xD4: {
+      case 0xd4: {
         licenseeCode = "ASK Kodansha Co.";
         break;
       }
-      case 0xD6: {
+      case 0xd6: {
         licenseeCode = "Naxat Soft";
         break;
       }
-      case 0xD7: {
+      case 0xd7: {
         licenseeCode = "Copya System";
         break;
       }
-      case 0xD9: {
+      case 0xd9: {
         licenseeCode = "Banpresto";
         break;
       }
-      case 0xDA: {
+      case 0xda: {
         licenseeCode = "Tomy";
         break;
       }
-      case 0xDB: {
+      case 0xdb: {
         licenseeCode = "LJN";
         break;
       }
-      case 0xDD: {
+      case 0xdd: {
         licenseeCode = "NCS";
         break;
       }
-      case 0xDE: {
+      case 0xde: {
         licenseeCode = "Human";
         break;
       }
-      case 0xDF: {
+      case 0xdf: {
         licenseeCode = "Altron";
         break;
       }
-      case 0xE0: {
+      case 0xe0: {
         licenseeCode = "Jaleco";
         break;
       }
-      case 0xE1: {
+      case 0xe1: {
         licenseeCode = "Towa Chiki";
         break;
       }
-      case 0xE2: {
+      case 0xe2: {
         licenseeCode = "Yutaka";
         break;
       }
-      case 0xE3: {
+      case 0xe3: {
         licenseeCode = "Varie";
         break;
       }
-      case 0xE5: {
+      case 0xe5: {
         licenseeCode = "Epcoh";
         break;
       }
-      case 0xE7: {
+      case 0xe7: {
         licenseeCode = "Athena";
         break;
       }
-      case 0xE8: {
+      case 0xe8: {
         licenseeCode = "Asmik ACE Entertainment";
         break;
       }
-      case 0xE9: {
+      case 0xe9: {
         licenseeCode = "Natsume";
         break;
       }
-      case 0xEA: {
+      case 0xea: {
         licenseeCode = "King Records";
         break;
       }
-      case 0xEB: {
+      case 0xeb: {
         licenseeCode = "Atlus";
         break;
       }
-      case 0xEC: {
+      case 0xec: {
         licenseeCode = "Epic/Sony Records";
         break;
       }
-      case 0xEE: {
+      case 0xee: {
         licenseeCode = "IGS";
         break;
       }
-      case 0xF0: {
+      case 0xf0: {
         licenseeCode = "A Wave";
         break;
       }
-      case 0xF3: {
+      case 0xf3: {
         licenseeCode = "Extreme Entertainment";
         break;
       }
-      case 0xFF: {
+      case 0xff: {
         licenseeCode = "LJN";
         break;
       }
@@ -1098,22 +1116,26 @@ class CPU {
   }
 
   setMaskROMVersionNumber() {
-    document.getElementById("MaskROMVersionNumber").textContent = this.memory.readByte(0x14C);
+    document.getElementById("MaskROMVersionNumber").textContent =
+      this.memory.readByte(0x14c);
   }
   setHeaderChecksum() {
     let checksum = 0;
 
-    for (let i = 0x134; i <= 0x14C; i++) {
+    for (let i = 0x134; i <= 0x14c; i++) {
       checksum = checksum - this.memory.readByte(i) - 1;
     }
 
-    const headerChecksumByte = this.memory.readByte(0x14D);
-    const calculatedChecksum = checksum & 0xFF;
+    const headerChecksumByte = this.memory.readByte(0x14d);
+    const calculatedChecksum = checksum & 0xff;
 
     const checksumMatches = headerChecksumByte === calculatedChecksum;
 
-    document.getElementById("HeaderChecksum").textContent = `${headerChecksumByte} (Header) vs. ${calculatedChecksum} (Calculated) - ${checksumMatches ? "Checksum matches." : "Checksum does not match!"
-      }`;
+    document.getElementById(
+      "HeaderChecksum"
+    ).textContent = `${headerChecksumByte} (Header) vs. ${calculatedChecksum} (Calculated) - ${
+      checksumMatches ? "Checksum matches." : "Checksum does not match!"
+    }`;
   }
 
   //Interrupts
@@ -1123,7 +1145,7 @@ class CPU {
   setImeScheduled(value) {
     this.imeScheduled = value;
   }
-  //Cycle 
+  //Cycle
   setCPUCycle(value) {
     this.cycle = value;
   }
@@ -1156,10 +1178,10 @@ class CPU {
     return this.SP;
   }
   decreaseSP(value) {
-    this.SP = this.SP - value;
+     this.SP = (this.SP - value) & 0xFFFF; 
   }
   increaseSP(value) {
-    this.SP = this.SP + value;
+      this.SP = (this.SP + value) & 0xFFFF; 
   }
   //Accumulator
   setAF(value) {
@@ -1169,32 +1191,32 @@ class CPU {
     return this.AF;
   }
   /**
-  * Set the A register to the value passed in, but keep the F register the same.
-  * @param {value} value - The value to set the register to.
-  */
+   * Set the A register to the value passed in, but keep the F register the same.
+   * @param {value} value - The value to set the register to.
+   */
   setA(value) {
-    this.AF = (this.AF & 0xFF) | ((value & 0xFF) << 8);
+    this.AF = (this.AF & 0xff) | ((value & 0xff) << 8);
   }
   /**
    * It returns the value of the A register, shifted right by 8 bits
    * @returns The value of the A register as 0x00FF which comes from 0xFF00.
    */
   getA() {
-    return (this.AF & 0xFF00) >> 8;
+    return (this.AF & 0xff00) >> 8;
   }
   /**
    * Set the lower 8 bits of the AF register to the lower 8 bits of the value parameter.
    * @param {number} value - The value to set the register to.
    */
   setF(value) {
-    this.AF = (this.AF & 0xFF00) | (value & 0xFF);
+    this.AF = (this.AF & 0xff00) | (value & 0xf0); // nur obere 4 Bits
   }
   /**
    * This function returns the value of the F register.
    * @returns The lower 8 bits of the AF register as 0x00FF.
    */
   getF() {
-    return (this.AF & 0xFF);
+    return this.AF & 0xff;
   }
 
   //Flags
@@ -1204,7 +1226,7 @@ class CPU {
       this.setF(this.getF() | 0x80);
     } else {
       // Clear Z flag to 0 by clearing the 7th bit of F
-      this.setF(this.getF() & 0x7F);
+      this.setF(this.getF() & 0x7f);
     }
   }
 
@@ -1218,7 +1240,7 @@ class CPU {
       this.setF(this.getF() | 0x40);
     } else {
       // Clear N flag to 0 by clearing the 6th bit of F
-      this.setF(this.getF() & 0xBF);
+      this.setF(this.getF() & 0xbf);
     }
   }
 
@@ -1232,7 +1254,7 @@ class CPU {
       this.setF(this.getF() | 0x20);
     } else {
       // Clear H flag to 0 by clearing the 5th bit of F
-      this.setF(this.getF() & 0xDF);
+      this.setF(this.getF() & 0xdf);
     }
   }
 
@@ -1246,7 +1268,7 @@ class CPU {
       this.setF(this.getF() | 0x10);
     } else {
       // Clear C flag to 0 by clearing the 4th bit of F
-      this.setF(this.getF() & 0xEF);
+      this.setF(this.getF() & 0xef);
     }
   }
 
@@ -1256,25 +1278,23 @@ class CPU {
 
   //Register  BC, DE and HL
   setBC(value) {
-    this.BC = value;
+    this.BC = value & 0xffff; // nur die unteren 16 Bit setzen
   }
   setB(value) {
-    this.BC = (this.BC & 0xFF) | ((value & 0xFF) << 8);
+    this.BC = ((value & 0xff) << 8) | (this.BC & 0x00ff);
   }
   setC(value) {
-    // Clear the lower 8 bits (LSB) of the BC register and set them to the new C value
-    this.setBC((this.getBC() & 0xFF00) | (value & 0xFF));
+    this.BC = (this.BC & 0xff00) | (value & 0xff);
   }
   getBC() {
-    return this.BC;
+    return this.BC & 0xffff;
   }
   getB() {
-    return (this.getBC() >> 8) & 0xFF; // Extract B register value
+    return (this.BC >> 8) & 0xff;
   }
 
   getC() {
-    // Return the lower 8 bits (LSB) of the BC register, which represent the C register
-    return this.getBC() & 0xFF;
+    return this.BC & 0xff;
   }
   setDE(value) {
     this.DE = value;
@@ -1283,36 +1303,103 @@ class CPU {
     return this.DE;
   }
   getE() {
-    return this.DE & 0xFF; // Extract E register value
+    return this.DE & 0xff; // Extract E register value
   }
   getD() {
-    return (this.DE >> 8) & 0xFF; // Extract D register value
+    return (this.DE >> 8) & 0xff; // Extract D register value
   }
   setE(value) {
-    this.DE = (this.DE & 0xFF00) | (value & 0xFF);
+    this.DE = (this.DE & 0xff00) | (value & 0xff);
   }
   setD(value) {
-    this.DE = (this.DE & 0xFF) | ((value & 0xFF) << 8);
+    this.DE = ((value & 0xff) << 8) | (this.DE & 0x00ff);
   }
   setHL(value) {
     this.HL = value;
   }
   getL() {
-    return this.HL & 0xFF; // Extract E register value
+    return this.HL & 0xff; // Extract E register value
   }
   setL(value) {
-    this.HL = (this.HL & 0xFF00) | (value & 0xFF);
+    this.HL = (this.HL & 0xff00) | (value & 0xff);
   }
   setH(value) {
-    this.HL = (this.HL & 0xFF) | ((value & 0xFF) << 8);
+    this.HL = ((value & 0xff) << 8) | (this.HL & 0xff);
   }
   getH() {
-    return (this.HL >> 8) & 0xFF; // Extract H register value
+    return (this.HL >> 8) & 0xff; // Extract H register value
   }
   getHL() {
-    return this.HL;
+    return this.HL & 0xffff;
+  }
+  adc(a, value, carry) {
+    const result = a + value + carry;
+
+    // Flags
+    const z = (result & 0xff) === 0 ? 1 : 0;
+    const n = 0;
+    const h = (a & 0xf) + (value & 0xf) + carry > 0xf ? 1 : 0;
+    const c = result > 0xff ? 1 : 0;
+
+    return {
+      result: result & 0xff,
+      z,
+      n,
+      h,
+      c,
+    };
+  }
+  // Hilfsfunktion für DEC eines 8-Bit-Registers
+  dec8bit(getReg, setReg) {
+    const val = getReg();
+    const result = (val - 1) & 0xff;
+
+    setReg(result);
+
+    this.setZFlag(result === 0 ? 1 : 0);
+    this.setNFlag(1);
+    this.setHFlag((val & 0x0f) === 0 ? 1 : 0);
+  }
+
+  // Hilfsfunktion für DEC eines 16-Bit-Registers
+  dec16bit(getReg, setReg) {
+    const result = (getReg() - 1) & 0xffff;
+    setReg(result);
+    // Z und H bleiben unverändert
   }
   toUnsigned16Bit(LSBValue, MSBValue) {
     return (MSBValue << 8) | LSBValue;
   }
+  toSigned16Bit(lsb, msb) {
+    // 16-Bit-Wert zusammenbauen
+    const value = (msb << 8) | lsb;
+
+    // In signed 16 Bit umwandeln
+    return (value << 16) >> 16;
+  }
+  toSigned8Bit(value) {
+    // Sicherstellen, dass nur 8 Bit verwendet werden
+    value &= 0xff;
+
+    // Signed-Konvertierung
+    return (value << 24) >> 24;
+  }
 }
+
+// console.log(
+//   "INDEX: " + this.i +
+//   "A:" + this.getA().toString(16).padStart(2, "0").toUpperCase() +
+//   " F:" + this.getF().toString(16).padStart(2, "0").toUpperCase() +
+//   " B:" + this.getB().toString(16).padStart(2, "0").toUpperCase() +
+//   " C:" + this.getC().toString(16).padStart(2, "0").toUpperCase() +
+//   " D:" + this.getD().toString(16).padStart(2, "0").toUpperCase() +
+//   " E:" + this.getE().toString(16).padStart(2, "0").toUpperCase() +
+//   " H:" + ((this.getHL() >> 8) & 0xFF).toString(16).padStart(2, "0").toUpperCase() +
+//   " L:" + this.getL().toString(16).padStart(2, "0").toUpperCase() +
+//   " SP:" + this.getSP().toString(16).padStart(4, "0").toUpperCase() +
+//   " PC:" + this.getPC().toString(16).padStart(4, "0").toUpperCase() +
+//   " PCMEM:" + this.memory.readByte(this.getPC()).toString(16).padStart(2, "0").toUpperCase() +
+//   "," + this.memory.readByte(this.getPC() + 1)?.toString(16).padStart(2, "0").toUpperCase() +
+//   "," + this.memory.readByte(this.getPC() + 2)?.toString(16).padStart(2, "0").toUpperCase() +
+//   "," + this.memory.readByte(this.getPC() + 3)?.toString(16).padStart(2, "0").toUpperCase()
+// );

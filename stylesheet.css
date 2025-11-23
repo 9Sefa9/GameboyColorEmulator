@@ -1,12 +1,84 @@
-table {
-    border-collapse: collapse;
-    width: 100%;
-}
+ body {
+        font-family: Arial, sans-serif;
+        background-color: #f0f0f0;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
 
-td,
-th {
-    border: 2px solid #000000;
-    text-align: left;
-    padding: 8px;
-    font-size: 1rem;
-}
+    h1 {
+        text-align: center;
+        color: #333;
+    }
+
+    .fps {
+        margin-bottom: 20px;
+    }
+
+    input[type="file"] {
+        padding: 8px;
+        font-size: 1rem;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        cursor: pointer;
+    }
+
+    table {
+        border-collapse: collapse;
+        width: 90%;
+        max-width: 800px;
+        background-color: #fff;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    th,
+    td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #ddd;
+    }
+
+    th {
+        background-color: #4CAF50;
+        color: white;
+        text-align: left;
+    }
+
+    tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    tr:hover {
+        background-color: #f1f1f1;
+    }
+
+    #serialOutput {
+        margin: 20px 0;
+        padding: 15px;
+        width: 90%;
+        max-width: 800px;
+        min-height: 80px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        overflow-y: auto;
+    }
+
+    button {
+        padding: 10px 20px;
+        margin: 5px;
+        border: none;
+        border-radius: 6px;
+        background-color: #4CAF50;
+        color: white;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #45a049;
+    }
