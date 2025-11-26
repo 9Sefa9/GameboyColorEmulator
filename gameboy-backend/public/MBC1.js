@@ -1,6 +1,7 @@
 class MBC1 {
   constructor(rom, ramSize = 0x8000) {
     this.rom = rom;
+    this.ramSize = ramSize;
     this.ram = new Uint8Array(ramSize); // external RAM
     this.wram = new Uint8Array(0x8000); // 8 Banks à 4KB = 32KB total WRAM
     this.vram = new Uint8Array(0x2000); // VRAM
@@ -17,7 +18,21 @@ class MBC1 {
     // GBC: SVBK Register initialisieren (WRAM Bank Control)
     this.ioRegisters[0x70] = 0x01; // Start with bank 1
   }
+  reset() {
+    this.ram = new Uint8Array(this.ramSize);
+    this.wram = new Uint8Array(0x8000);
+    this.vram = new Uint8Array(0x2000);
+    this.oam = new Uint8Array(0xa0);
+    this.ioRegisters = new Uint8Array(0x80);
+    this.zram = new Uint8Array(0x7f);
+    this.interruptEnabled = 0;
 
+    this.romBank = 1;
+    this.ramBank = 0;
+    this.mode = 0;
+    this.ramEnabled = false;
+    this.ioRegisters[0x70] = 0x01;
+  }
   readByte(address, cpu = null) {
     if (address > 0xffff) {
       console.error(
@@ -75,11 +90,13 @@ class MBC1 {
       throw new Error(`Address out of range: 0x${address.toString(16)}`);
     }
 
-    if (cpu && address >= 0xDD00 && address <= 0xDDFF) {
+    if (cpu && address >= 0xdd00 && address <= 0xddff) {
       console.log(
         `MBC1 READ WRAM: 0x${address.toString(16)} => 0x${value.toString(
           16
-        )} bank:${this.ioRegisters[0x70] & 0x07} PC: 0x${cpu.getPC().toString(16)}`
+        )} bank:${this.ioRegisters[0x70] & 0x07} PC: 0x${cpu
+          .getPC()
+          .toString(16)}`
       );
     }
     return value;
@@ -129,13 +146,15 @@ class MBC1 {
       this.writeByte(address - 0x2000, value, cpu);
     } else if (address <= 0xfe9f) {
       this.oam[address - 0xfe00] = value;
-    } else if (address <= 0xff7f) {
+    } // In MBC1 writeByte, stelle sicher dass dieser Teil existiert:
+    else if (address <= 0xff7f) {
       const idx = address - 0xff00;
       if (idx < 0x80) {
-        // Special handling for SVBK register (0xFF70)
-        if (idx === 0x70) {
-          // SVBK - WRAM Bank Control (only bits 0-2 are used)
-          this.ioRegisters[idx] = value & 0x07;
+        // 🚨 WICHTIG: IF Register (0xFF0F) - nur Bits 0-4 sind schreibbar
+        if (idx === 0x0f) {
+          // IF Register - nur Bits 0-4 sind verwendbar, Rest bleibt 1
+          this.ioRegisters[idx] =
+            (value & 0x1f) | (this.ioRegisters[idx] & 0xe0);
         } else {
           this.ioRegisters[idx] = value;
         }
@@ -146,15 +165,25 @@ class MBC1 {
     } else if (address === 0xffff) {
       this.interruptEnabled = value;
     } else {
-      console.error(`MBC1 WRITE invalid address: 0x${address.toString(16)}`);
-      throw new Error(`Address out of range: 0x${address.toString(16)}`);
+      console.error(
+        `MBC1 WRITE invalid address: 0x${address?.toString(
+          16
+        )}, value: 0x${value.toString(16)}`
+      );
+      throw new Error(
+        `Address out of range: 0x${address?.toString(
+          16
+        )}, value: 0x${value.toString(16)}`
+      );
     }
 
-    if (cpu && address >= 0xDD00 && address <= 0xDDFF) {
+    if (cpu && address >= 0xdd00 && address <= 0xddff) {
       console.log(
         `MBC1 WRITE WRAM: 0x${address.toString(16)} <= 0x${value.toString(
           16
-        )} bank:${this.ioRegisters[0x70] & 0x07} PC: 0x${cpu.getPC().toString(16)}`
+        )} bank:${this.ioRegisters[0x70] & 0x07} PC: 0x${cpu
+          .getPC()
+          .toString(16)}`
       );
     }
   }

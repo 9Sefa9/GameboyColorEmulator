@@ -1,0 +1,10 @@
+truth/unzipped/cpu_instrs/*
+debugNodeJS
+node_modules
+gameboy-backend/node_modules
+log6.txt
+gameboy-backend/.vscode/*
+.DS_Store
+.vscode/*
+.idea/*
+*.iml

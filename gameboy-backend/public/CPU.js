@@ -8,10 +8,12 @@ class CPU {
     this.HL = 0; //16 bit register
     this.SP = 0; //16 bit register - Stack Pointer
     this.PC = 0; //16 bit register - Program Counter
-    this.i = 0;
     this.AF = 0; //Accumulator 8 bit and Flags 8 bit = 16 bit register
     this.log = "";
     this.cbModeActive = false; //To indicate if the next fetched opcode is from CB prefix
+    this.MAX_CYCLES_PER_FRAME = 250000;
+    this.isRunning = false;
+    this.isPaused = false;
     //Flags
     // 7 6 5 4 3 2 1 0
     // Z N H C 0 0 0 0
@@ -42,21 +44,53 @@ class CPU {
     this.currentTime = 0;
     this.elapsedTime = 0;
     this.frameCount = 0;
-    this.fpsTitle = document.querySelector(".fps");
 
     //Cycle which is 8 since 1 Machine cycle represents 8 cycle in GameBoy Color
     this.cycle = 0;
 
-    //Interrupt handling ( To do )
-    this.ime = 0;
-    this.imeScheduled = 0;
+    // Interrupt handling - ERWEITERT
+    this.ime = 0; // Interrupt Master Enable
+    this.imeScheduled = 0; // Für EI Instruction
+    this.isHalted = false; // HALT State
+    this.inInterrupt = false; // Verhindert Interrupt-Reentrancy
+    this.haltBug = false; // HALT Bug State
+    this.stopMode = false; // STOP Mode
+    this.interruptOccurred = false;
 
-    //DUMMY DATAS
+    //Timer-Emulation
+    this.divCounter = 0; // DIV Register counter
+    this.timaCounter = 0; // TIMA Register counter
+    this.timerEnabled = false; // TAC Register bit 2
+
     this.memory = null;
+    // Button Referenzen
+    this.startBtn = document.getElementById("start");
+    this.stopBtn = document.getElementById("stop");
+    this.pauseBtn = document.getElementById("pause");
+    this.resumeBtn = document.getElementById("resume");
+    this.exportBtn = document.getElementById("export-log");
+    this.serialOutput = document.getElementById("serialOutput");
+    this.fpsTitle = document.querySelector(".fps");
+  }
+  updateButtonStates() {
+    // Start Button - nur aktiv wenn nicht läuft
+    this.startBtn.disabled = this.isRunning;
+
+    // Stop Button - aktiv wenn läuft (pausiert oder nicht)
+    this.stopBtn.disabled = !this.isRunning;
+
+    // Pause Button - aktiv wenn läuft und nicht pausiert
+    this.pauseBtn.disabled = !this.isRunning || this.isPaused;
+
+    // Resume Button - aktiv wenn pausiert
+    this.resumeBtn.disabled = !this.isPaused;
   }
   start() {
     document.getElementById("start").onclick = () => {
-      console.log("START");
+      console.log("STARTING EMULATION");
+
+      this.isRunning = true;
+      this.isPaused = false;
       const file = document.getElementById("rom").files[0]; // get the selected file
       const reader = new FileReader(); // create a new FileReader object
 
@@ -65,7 +99,13 @@ class CPU {
         const arrayBuffer = e.target.result; // get the contents of the file as an ArrayBuffer
         const rom = new Uint8Array(arrayBuffer); // create a new Uint8Array from the ArrayBuffer
         this.memory = new MBC1(rom, 0x8000);
-        // this.memory = new NoMBC(rom, 0x8000);
+
+        // ✅ HIER DEN DEBUG-CODE EINFÜGEN:
+        const originalWriteByte = this.memory.writeByte.bind(this.memory);
+        this.memory.writeByte = (address, value, cpu = null) => {
+          return originalWriteByte(address, value, cpu);
+        };
+
         this.setTitle();
         this.setManufacturerCode();
         this.setCGBFlag();
@@ -79,21 +119,25 @@ class CPU {
         this.setMaskROMVersionNumber();
         this.setHeaderChecksum();
 
-        // this.startTime = window.performance.now();
-        // this.raf = requestAnimationFrame(() => this.loop());
         this.loop();
       };
       reader.readAsArrayBuffer(file); // read the file as an ArrayBuffer
       this.reset();
+      this.updateButtonStates();
     };
-
-    document.getElementById("pause").onclick = () => {
-      console.log("PAUSE");
+    document.getElementById("stop").onclick = () => {
+      console.log("<INITIATE STOPPING EMULATION>");
       this.stopLoop();
     };
 
+    document.getElementById("pause").onclick = () => {
+      console.log("<INITIATE PAUSING EMULATION>");
+      this.pauseLoop();
+    };
+
     document.getElementById("resume").onclick = () => {
-      console.log("RESUME");
+      console.log("< INITIATE RESUMING EMULATION>");
+      this.resumeLoop();
       // this.startTime = window.performance.now();
       // this.raf = requestAnimationFrame(() => this.loop());
     };
@@ -104,12 +148,48 @@ class CPU {
         method: "POST",
         body: JSON.stringify({
           message: this.log,
+          instrNumber: document.getElementById("instrNumber").value,
         }),
         headers: {
           "Content-Type": "application/json",
         },
       });
+      this.stopLoop();
+      this.updateButtonStates();
     };
+  }
+  resumeLoop() {
+    if (!this.isPaused) {
+      console.log("Not paused - cannot resume");
+      return;
+    }
+
+    console.log("RESUME - resuming emulation");
+    this.isPaused = false;
+    this.loop();
+    this.updateButtonStates();
+  }
+  pauseLoop() {
+    console.log("PAUSE - pausing emulation");
+    this.isPaused = true;
+
+    if (this.raf) {
+      window.cancelAnimationFrame(this.raf);
+      this.raf = undefined;
+    }
+
+    this.updateButtonStates();
+  }
+  stopLoop() {
+    this.isRunning = false;
+    this.isPaused = false;
+
+    if (this.raf) {
+      window.cancelAnimationFrame(this.raf);
+      this.raf = undefined;
+    }
+
+    this.updateButtonStates();
   }
   reset() {
     // this.setPC(0x0208);
@@ -126,106 +206,335 @@ class CPU {
     this.setPC(0x0100);
     this.setSP(0xfffe);
 
-    // this.setZFlag(1);
-    // this.setHFlag(1);
-    // this.setCFlag(1);
+    this.updateButtonStates();
   }
-  //@TODO cycleCount implementierung ( machine cycle und cycle ..)
-  loop() {
-    while (true && this.i <= 1070000) {
-      this.frameCount++;
-      this.currentTime = window.performance.now();
-      this.elapsedTime = this.currentTime - this.startTime;
+  updateTimers(cycles) {
+    // DIV Register (0xFF04) - incremented at 16384 Hz (256 cycles)
+    this.divCounter += cycles;
+    while (this.divCounter >= 256) {
+      this.divCounter -= 256;
+      const div = this.memory.readByte(0xff04);
+      this.memory.writeByte(0xff04, (div + 1) & 0xff);
+    }
 
-      this.wait();
-      this.log +=
-        "A:" +
-        this.getA().toString(16).padStart(2, "0").toUpperCase() +
-        " F:" +
-        this.getF().toString(16).padStart(2, "0").toUpperCase() +
-        " B:" +
-        this.getB().toString(16).padStart(2, "0").toUpperCase() +
-        " C:" +
-        this.getC().toString(16).padStart(2, "0").toUpperCase() +
-        " D:" +
-        this.getD().toString(16).padStart(2, "0").toUpperCase() +
-        " E:" +
-        this.getE().toString(16).padStart(2, "0").toUpperCase() +
-        " H:" +
-        this.getH().toString(16).padStart(2, "0").toUpperCase() +
-        " L:" +
-        this.getL().toString(16).padStart(2, "0").toUpperCase() +
-        " SP:" +
-        this.getSP().toString(16).padStart(4, "0").toUpperCase() +
-        " PC:" +
-        this.getPC().toString(16).padStart(4, "0").toUpperCase() +
-        " PCMEM:" +
-        this.memory
-          .readByte(this.getPC())
-          ?.toString(16)
-          .padStart(2, "0")
-          .toUpperCase() +
-        "," +
-        this.memory
-          .readByte(this.getPC() + 1)
-          ?.toString(16)
-          .padStart(2, "0")
-          .toUpperCase() +
-        "," +
-        this.memory
-          .readByte(this.getPC() + 2)
-          ?.toString(16)
-          .padStart(2, "0")
-          .toUpperCase() +
-        "," +
-        this.memory
-          .readByte(this.getPC() + 3)
-          ?.toString(16)
-          .padStart(2, "0")
-          .toUpperCase() +
-        "\n";
-      const opcode = this.fetch();
-      const instruction = this.decode(opcode);
+    // Timer enabled? (TAC register bit 2)
+    const tac = this.memory.readByte(0xff07);
+    this.timerEnabled = (tac & 0x04) !== 0;
 
-      this.i += 1;
-      
-      this.execute(instruction);
-      if (!instruction.getHandlesPC()) {
-        this.increasePC(instruction.getLen());
+    if (this.timerEnabled) {
+      const frequencies = [1024, 16, 64, 256];
+      const frequency = frequencies[tac & 0x03];
+
+      this.timaCounter += cycles;
+      while (this.timaCounter >= frequency) {
+        this.timaCounter -= frequency;
+
+        let tima = this.memory.readByte(0xff05) + 1;
+        if (tima > 0xff) {
+          tima = this.memory.readByte(0xff06); // Reload from TMA
+
+          // Set timer interrupt flag in IF register
+          const ifReg = this.memory.readByte(0xff0f);
+          this.memory.writeByte(0xff0f, ifReg | 0x04);
+          console.log("⏰ Timer Interrupt triggered - IF set");
+        }
+        this.memory.writeByte(0xff05, tima);
       }
-      //Additional visual helpers
-      // this.fpsTitle.textContent = `FPS: ${Math.floor(
-      //   (this.frameCount / this.elapsedTime) * 1000
-      // )}`;
-      this.frameCount = 0;
+    }
+  }
+
+ loop() {
+    // Nur ausführen wenn läuft und nicht pausiert
+    if (!this.isRunning || this.isPaused) {
+        return;
     }
 
-    //this.raf = requestAnimationFrame(() => this.loop());
-  }
-  stopLoop() {
-    if (this.raf) {
-      window.cancelAnimationFrame(this.raf);
-      this.raf = undefined;
+    let cyclesThisFrame = 0;
+
+    while (
+        cyclesThisFrame < this.MAX_CYCLES_PER_FRAME &&
+        this.isRunning &&
+        !this.isPaused
+    ) {
+        this.frameCount++;
+        this.currentTime = window.performance.now();
+        this.elapsedTime = this.currentTime - this.startTime;
+
+        this.wait();
+        // this.logState();
+
+        // HALT Bug behandeln
+        if (this.haltBug) {
+            this.haltBug = false;
+            this.isHalted = false;
+            console.log("🐛 HALT Bug - executing instruction without PC increment");
+        }
+
+        // HALT/STOP Mode
+        if (this.isHalted || this.stopMode) {
+            const IE = this.memory.readByte(0xffff);
+            const IF = this.memory.readByte(0xff0f);
+            const pendingInterrupts = IE & IF & 0x1f;
+
+            if (pendingInterrupts) {
+                this.isHalted = false;
+                this.stopMode = false;
+
+                if (this.ime === 0 && this.isHalted) {
+                    this.haltBug = true;
+                    console.log("🐛 HALT Bug - PC won't be incremented");
+                }
+            }
+
+            this.increaseCPUCycle(4);
+            cyclesThisFrame += 4;
+            this.updateTimers(4);
+
+            if (this.isHalted || this.stopMode) {
+                continue;
+            }
+        }
+
+        // 🚨 WICHTIG: Zuerst Interrupts prüfen, bevor Instruktion ausgeführt wird
+        this.handleInterrupts();
+        
+        // Wenn ein Interrupt aufgetreten ist, überspringen wir die normale Instruktionsausführung
+        if (this.interruptOccurred) {
+            this.interruptOccurred = false;
+            continue;
+        }
+
+        const opcode = this.fetch();
+        const instruction = this.decode(opcode);
+        this.debugInstructionFlow(this.getPC(), instruction);
+        this.execute(instruction);
+
+        if (this.imeScheduled) {
+            this.ime = 1;
+            this.imeScheduled = 0;
+        }
+
+        if (!instruction.getHandlesPC()) {
+            this.increasePC(instruction.getLen());
+        }
+        
+        this.updateTimers(instruction.getOpcodeCycle());
+        this.debugSP();
+
+        cyclesThisFrame += instruction.getOpcodeCycle();
+    }
+
+    // FPS-Anzeige aktualisieren
+    if (this.frameCount % 100000 === 0) {
+        this.fpsTitle.textContent = `FPS: ${Math.floor(
+            (this.frameCount / this.elapsedTime) * 1000
+        )}`;
+    }
+
+    if (this.isRunning && !this.isPaused) {
+        this.raf = requestAnimationFrame(() => this.loop());
+    }
+}
+
+  debugInstructionFlow(pc, instruction) {
+    if (pc >= 0xc2b0 && pc <= 0xc2d0) {
+      console.log(
+        `🔍 FLOW: PC=0x${pc.toString(16)} ${instruction.getInstruction()} IME=${
+          this.ime
+        } IME_Scheduled=${this.imeScheduled}`
+      );
+
+      // Zeige die nächsten Bytes
+      console.log(
+        `   Next: ${this.memory.readByte(pc).toString(16)} ${this.memory
+          .readByte(pc + 1)
+          .toString(16)} ${this.memory.readByte(pc + 2).toString(16)}`
+      );
+
+      // Zeige Interrupt-Status
+      const IE = this.memory.readByte(0xffff);
+      const IF = this.memory.readByte(0xff0f);
+      console.log(
+        `   IE=0x${IE.toString(16)} IF=0x${IF.toString(16)} Pending=0x${(
+          IE &
+          IF &
+          0x1f
+        ).toString(16)}`
+      );
     }
   }
+
+  handleInterrupts() {
+    const IE = this.memory.readByte(0xffff);
+    const IF = this.memory.readByte(0xff0f);
+    const pendingInterrupts = IE & IF & 0x1f;
+
+    if (this.ime && pendingInterrupts && !this.isHalted && !this.stopMode) {
+      console.log(
+        `🎯 Interrupt triggered: pending=0x${pendingInterrupts.toString(16)}`
+      );
+      this.ime = 0;
+
+      // Find highest priority interrupt
+      let interruptBit = 0;
+      if (pendingInterrupts & 0x01) interruptBit = 0x01; // VBlank
+      else if (pendingInterrupts & 0x02) interruptBit = 0x02; // LCD STAT
+      else if (pendingInterrupts & 0x04) interruptBit = 0x04; // Timer
+      else if (pendingInterrupts & 0x08) interruptBit = 0x08; // Serial
+      else if (pendingInterrupts & 0x10) interruptBit = 0x10; // Joypad
+
+      if (interruptBit !== 0) {
+        this.serviceInterrupt(interruptBit);
+        this.increaseCPUCycle(20); // 🚨 WICHTIG: 20 Zyklen für Interrupt
+      }
+    }
+  }
+
+  serviceInterrupt(interruptBit) {
+    console.log(
+        `🔍 INTERRUPT START: PC=0x${this.getPC().toString(16)} SP=0x${this.getSP().toString(16)}`
+    );
+
+    // Clear the specific interrupt flag in IF register
+    const IF = this.memory.readByte(0xff0f);
+    this.memory.writeByte(0xff0f, IF & ~interruptBit);
+    
+    // 🚨 WICHTIG: Return-Adresse ist der aktuelle PC (nicht PC + Len)
+    const returnAddr = this.getPC();
+
+    // ✅ KORREKT: Zuerst SP verringern, dann schreiben (wie im echten GB)
+    // High byte zuerst pushen
+    this.decreaseSP(1);
+    const spAfterFirstDecrease = this.getSP(); // Store SP after first decrease
+    this.memory.writeByte(spAfterFirstDecrease, (returnAddr >> 8) & 0xff); // High byte
+    this.debugStackOperation("PUSH_HIGH", spAfterFirstDecrease, (returnAddr >> 8) & 0xff);
+    
+    // Low byte pushen
+    this.decreaseSP(1);
+    const spAfterSecondDecrease = this.getSP(); // Store SP after second decrease
+    this.memory.writeByte(spAfterSecondDecrease, returnAddr & 0xff); // Low byte
+    this.debugStackOperation("PUSH_LOW", spAfterSecondDecrease, returnAddr & 0xff);
+    
+    console.log(
+        `🔍 STACK PUSH: PC=0x${returnAddr.toString(16)} -> [0x${(spAfterSecondDecrease + 1).toString(16)}]=0x${((returnAddr >> 8) & 0xff).toString(16)} [0x${spAfterSecondDecrease.toString(16)}]=0x${(returnAddr & 0xff).toString(16)}`
+    );
+
+    // Jump to interrupt vector
+    const vectors = {
+        0x01: 0x40, // VBlank
+        0x02: 0x48, // LCD STAT
+        0x04: 0x50, // Timer
+        0x08: 0x58, // Serial
+        0x10: 0x60, // Joypad
+    };
+
+    this.setPC(vectors[interruptBit] || 0x40);
+    this.interruptOccurred = true;
+
+    console.log(
+        `🔍 INTERRUPT END: PC=0x${this.getPC().toString(16)} SP=0x${this.getSP().toString(16)}`
+    );
+}
+  debugSP() {
+    // Erweitere die Bedingungen für das Debugging
+    if (this.getPC() >= 0xc2b0 && this.getPC() <= 0xc2d0) {
+      console.log(
+        `🔍 CRITICAL DEBUG SP: PC=0x${this.getPC().toString(
+          16
+        )} SP=0x${this.getSP().toString(16)} IME=${this.ime}`
+      );
+
+      // Zeige die letzten Stack-Operationen
+      console.log(
+        `   Last opcodes: ${this.memory
+          .readByte(this.getPC() - 2)
+          .toString(16)}, ${this.memory
+          .readByte(this.getPC() - 1)
+          .toString(16)}, ${this.memory.readByte(this.getPC()).toString(16)}`
+      );
+
+      // Stack-Inhalt anzeigen
+      for (let i = 0; i < 6; i++) {
+        const addr = (this.getSP() + i) & 0xffff;
+        console.log(
+          `   Stack[0x${addr.toString(16)}] = 0x${this.memory
+            .readByte(addr)
+            .toString(16)}`
+        );
+      }
+    }
+  }
+  debugStackOperation(operation, address, value) {
+    if (this.getPC() >= 0xc2b0 && this.getPC() <= 0xc2d0) {
+      console.log(
+        `📚 STACK ${operation}: [0x${address.toString(
+          16
+        )}] = 0x${value.toString(16)} SP=0x${this.getSP().toString(16)}`
+      );
+    }
+  }
+  logState() {
+    this.log +=
+      "A:" +
+      this.getA().toString(16).padStart(2, "0").toUpperCase() +
+      " F:" +
+      this.getF().toString(16).padStart(2, "0").toUpperCase() +
+      " B:" +
+      this.getB().toString(16).padStart(2, "0").toUpperCase() +
+      " C:" +
+      this.getC().toString(16).padStart(2, "0").toUpperCase() +
+      " D:" +
+      this.getD().toString(16).padStart(2, "0").toUpperCase() +
+      " E:" +
+      this.getE().toString(16).padStart(2, "0").toUpperCase() +
+      " H:" +
+      this.getH().toString(16).padStart(2, "0").toUpperCase() +
+      " L:" +
+      this.getL().toString(16).padStart(2, "0").toUpperCase() +
+      " SP:" +
+      this.getSP().toString(16).padStart(4, "0").toUpperCase() +
+      " PC:" +
+      this.getPC().toString(16).padStart(4, "0").toUpperCase() +
+      " PCMEM:" +
+      this.memory
+        .readByte(this.getPC())
+        ?.toString(16)
+        .padStart(2, "0")
+        .toUpperCase() +
+      "," +
+      this.memory
+        .readByte(this.getPC() + 1)
+        ?.toString(16)
+        .padStart(2, "0")
+        .toUpperCase() +
+      "," +
+      this.memory
+        .readByte(this.getPC() + 2)
+        ?.toString(16)
+        .padStart(2, "0")
+        .toUpperCase() +
+      "," +
+      this.memory
+        .readByte(this.getPC() + 3)
+        ?.toString(16)
+        .padStart(2, "0")
+        .toUpperCase() +
+      "\n";
+  }
+
   //The instruction cycle consists of four phases: fetching an instruction from memory and
   fetch() {
-    // Every instruction needs one machine cycle for the fetch stage, and
-    //at least one machine cycle for the decode/execute stage.  1 machine cycle = 8 cycles
-    this.cycle += 8;
-    let currentMemoryData = this.memory.readByte(this.PC);
+    let currentMemoryData = this.memory.readByte(this.getPC());
     // For Blargs CPU test ( without ppu )
     if (this.memory.readByte(0xff02) === 0x81) {
       let c = this.memory.readByte(0xff01);
-      const outputEl = document.getElementById("serialOutput");
-      outputEl.textContent += String.fromCharCode(c); // oder += c;
+      this.serialOutput.textContent += String.fromCharCode(c);
       this.memory.writeByte(0xff02, 0x0);
     }
 
     if (currentMemoryData === 0xcb) {
-      this.increasePC(1);
       this.cbModeActive = true;
-      currentMemoryData = this.memory.readByte(this.PC);
+      currentMemoryData = this.memory.readByte(this.getPC() + 1);
     } else {
       this.cbModeActive = false;
     }
@@ -234,23 +543,33 @@ class CPU {
   }
   //decoding the fetched instruction, reading the address from memory...
   decode(opcode) {
-    this.increaseCPUCycle(8);
-
     if (this.cbModeActive) {
       this.cbModeActive = false;
-      return InstructionSet.getCBInstruction(opcode);
+      const instruction = InstructionSet.getCBInstruction(opcode);
+      // console.log(
+      //   `🔍 DECODE CB: 0x${opcode.toString(
+      //     16
+      //   )} -> ${instruction.getInstruction()} at PC=0x${this.getPC().toString(16)}`
+      // );
+      return instruction;
     }
 
-    return InstructionSet.getInstruction(opcode);
+    const instruction = InstructionSet.getInstruction(opcode);
+
+    // console.log(
+    //   `🔍 DECODE: 0x${opcode.toString(
+    //     16
+    //   )} -> ${instruction.getInstruction()} at PC=0x${this.getPC().toString(16)}`
+    // );
+    return instruction;
   }
   //and finally, instruction execution.
   execute(instruction) {
-    this.increaseCPUCycle(8);
     InstructionSet.executeInstruction(this, instruction);
   }
   wait() {
     // let currentCPUCycle = this.getCPUCycle();
-    while (this.getCPUCycle() * 1000 > 0) {
+    if (this.getCPUCycle() > 0) {
       this.decreaseCPUCycle(1);
     }
   }
@@ -1145,6 +1464,30 @@ class CPU {
   setImeScheduled(value) {
     this.imeScheduled = value;
   }
+  getIme() {
+    return this.ime;
+  }
+  getImeScheduled() {
+    return this.imeScheduled;
+  }
+  setIsHalted(value) {
+    this.isHalted = value;
+  }
+  getIsHalted() {
+    return this.isHalted;
+  }
+  setHaltBug(value) {
+    this.haltBug = value;
+  }
+  getHaltBug() {
+    return this.haltBug;
+  }
+  setStopMode(value) {
+    this.stopMode = value;
+  }
+  getStopMode() {
+    return this.stopMode;
+  }
   //Cycle
   setCPUCycle(value) {
     this.cycle = value;
@@ -1172,16 +1515,17 @@ class CPU {
     this.PC = this.PC + value;
   }
   setSP(value) {
-    this.SP = value;
+    this.SP = value & 0xffff; // ✅ Sicherstellen dass es 16-bit bleibt
   }
+
   getSP() {
-    return this.SP;
+    return this.SP & 0xffff; // ✅ Sicherstellen dass es 16-bit zurückgibt
   }
   decreaseSP(value) {
-     this.SP = (this.SP - value) & 0xFFFF; 
+    this.SP = (this.SP - value) & 0xffff;
   }
   increaseSP(value) {
-      this.SP = (this.SP + value) & 0xFFFF; 
+    this.SP = (this.SP + value) & 0xffff;
   }
   //Accumulator
   setAF(value) {
@@ -1385,21 +1729,3 @@ class CPU {
     return (value << 24) >> 24;
   }
 }
-
-// console.log(
-//   "INDEX: " + this.i +
-//   "A:" + this.getA().toString(16).padStart(2, "0").toUpperCase() +
-//   " F:" + this.getF().toString(16).padStart(2, "0").toUpperCase() +
-//   " B:" + this.getB().toString(16).padStart(2, "0").toUpperCase() +
-//   " C:" + this.getC().toString(16).padStart(2, "0").toUpperCase() +
-//   " D:" + this.getD().toString(16).padStart(2, "0").toUpperCase() +
-//   " E:" + this.getE().toString(16).padStart(2, "0").toUpperCase() +
-//   " H:" + ((this.getHL() >> 8) & 0xFF).toString(16).padStart(2, "0").toUpperCase() +
-//   " L:" + this.getL().toString(16).padStart(2, "0").toUpperCase() +
-//   " SP:" + this.getSP().toString(16).padStart(4, "0").toUpperCase() +
-//   " PC:" + this.getPC().toString(16).padStart(4, "0").toUpperCase() +
-//   " PCMEM:" + this.memory.readByte(this.getPC()).toString(16).padStart(2, "0").toUpperCase() +
-//   "," + this.memory.readByte(this.getPC() + 1)?.toString(16).padStart(2, "0").toUpperCase() +
-//   "," + this.memory.readByte(this.getPC() + 2)?.toString(16).padStart(2, "0").toUpperCase() +
-//   "," + this.memory.readByte(this.getPC() + 3)?.toString(16).padStart(2, "0").toUpperCase()
-// );
