@@ -14,6 +14,7 @@ class CPU {
     this.MAX_CYCLES_PER_FRAME = 250000;
     this.isRunning = false;
     this.isPaused = false;
+    this.i = 0;
     //Flags
     // 7 6 5 4 3 2 1 0
     // Z N H C 0 0 0 0
@@ -236,7 +237,6 @@ class CPU {
           // Set timer interrupt flag in IF register
           const ifReg = this.memory.readByte(0xff0f);
           this.memory.writeByte(0xff0f, ifReg | 0x04);
-          console.log("⏰ Timer Interrupt triggered - IF set");
         }
         this.memory.writeByte(0xff05, tima);
       }
@@ -244,96 +244,86 @@ class CPU {
   }
 
  loop() {
-    // Nur ausführen wenn läuft und nicht pausiert
-    if (!this.isRunning || this.isPaused) {
-        return;
+  if (!this.isRunning || this.isPaused) return;
+
+  let cyclesThisFrame = 0;
+
+  while (cyclesThisFrame < this.MAX_CYCLES_PER_FRAME && this.isRunning && !this.isPaused) {
+    this.i = this.i + 1;
+    if (this.i > 7000000) break;
+
+    this.wait();
+
+    // 🚨 INTERRUPTS ZUERST prüfen
+    this.handleInterrupts();
+
+    // HALT Bug behandeln
+    if (this.haltBug) {
+      this.haltBug = false;
+      this.isHalted = false;
+      console.log("🐛 HALT Bug - executing instruction without PC increment");
     }
 
-    let cyclesThisFrame = 0;
+    // HALT/STOP Mode Behandlung
+    if (this.isHalted || this.stopMode) {
+      const IE = this.memory.readByte(0xffff);
+      const IF = this.memory.readByte(0xff0f);
+      const pendingInterrupts = IE & IF & 0x1f;
 
-    while (
-        cyclesThisFrame < this.MAX_CYCLES_PER_FRAME &&
-        this.isRunning &&
-        !this.isPaused
-    ) {
-        this.frameCount++;
-        this.currentTime = window.performance.now();
-        this.elapsedTime = this.currentTime - this.startTime;
+      if (pendingInterrupts) {
+        console.log(`🛑 STOP/HALT exit: pending interrupts 0x${pendingInterrupts.toString(16)}`);
+        this.isHalted = false;
+        this.stopMode = false;
 
-        this.wait();
-        // this.logState();
-
-        // HALT Bug behandeln
-        if (this.haltBug) {
-            this.haltBug = false;
-            this.isHalted = false;
-            console.log("🐛 HALT Bug - executing instruction without PC increment");
+        // HALT Bug: Wenn IME=0 und HALT mode, dann HALT Bug
+        if (this.ime === 0) {
+          this.haltBug = true;
         }
+      }
 
-        // HALT/STOP Mode
-        if (this.isHalted || this.stopMode) {
-            const IE = this.memory.readByte(0xffff);
-            const IF = this.memory.readByte(0xff0f);
-            const pendingInterrupts = IE & IF & 0x1f;
-
-            if (pendingInterrupts) {
-                this.isHalted = false;
-                this.stopMode = false;
-
-                if (this.ime === 0 && this.isHalted) {
-                    this.haltBug = true;
-                    console.log("🐛 HALT Bug - PC won't be incremented");
-                }
-            }
-
-            this.increaseCPUCycle(4);
-            cyclesThisFrame += 4;
-            this.updateTimers(4);
-
-            if (this.isHalted || this.stopMode) {
-                continue;
-            }
-        }
-
-        // 🚨 WICHTIG: Zuerst Interrupts prüfen, bevor Instruktion ausgeführt wird
-        this.handleInterrupts();
-        
-        // Wenn ein Interrupt aufgetreten ist, überspringen wir die normale Instruktionsausführung
-        if (this.interruptOccurred) {
-            this.interruptOccurred = false;
-            continue;
-        }
-
-        const opcode = this.fetch();
-        const instruction = this.decode(opcode);
-        this.debugInstructionFlow(this.getPC(), instruction);
-        this.execute(instruction);
-
-        if (this.imeScheduled) {
-            this.ime = 1;
-            this.imeScheduled = 0;
-        }
-
-        if (!instruction.getHandlesPC()) {
-            this.increasePC(instruction.getLen());
-        }
-        
-        this.updateTimers(instruction.getOpcodeCycle());
-        this.debugSP();
-
-        cyclesThisFrame += instruction.getOpcodeCycle();
+      // Wenn immer noch im HALT/STOP, nur Zyklus verbrauchen und weiter
+      if (this.isHalted || this.stopMode) {
+        this.increaseCPUCycle(4);
+        cyclesThisFrame += 4;
+        this.updateTimers(4);
+        continue;
+      }
+      
+      // 🚨 WICHTIG: Wenn wir aus STOP/HALT rauskommen, führen wir KEINE normale Instruction aus!
+      // Wir springen direkt zur nächsten Iteration
+      continue;
     }
 
-    // FPS-Anzeige aktualisieren
-    if (this.frameCount % 100000 === 0) {
-        this.fpsTitle.textContent = `FPS: ${Math.floor(
-            (this.frameCount / this.elapsedTime) * 1000
-        )}`;
+    // Normale Instruktionsausführung (nur wenn NICHT im HALT/STOP)
+    const opcode = this.fetch();
+    const instruction = this.decode(opcode);
+    
+    // Debug output für kritische Bereiche
+    if (this.getPC() >= 0xc2b0 && this.getPC() <= 0xc2d0) {
+      console.log(`🔍 Executing: ${instruction.getInstruction()} at PC=0x${this.getPC().toString(16)}`);
+    }
+    
+    this.execute(instruction);
+
+    // IME handling
+    if (this.imeScheduled) {
+      this.ime = 1;
+      this.imeScheduled = 0;
     }
 
-    if (this.isRunning && !this.isPaused) {
-        this.raf = requestAnimationFrame(() => this.loop());
+    // PC erhöhen (wenn nicht schon von Instruction gehandled)
+    if (!instruction.getHandlesPC()) {
+      this.increasePC(instruction.getLen());
     }
+
+    // Timer updates
+    this.updateTimers(instruction.getOpcodeCycle());
+    cyclesThisFrame += instruction.getOpcodeCycle();
+  }
+
+  if (this.isRunning && !this.isPaused) {
+    this.raf = requestAnimationFrame(() => this.loop());
+  }
 }
 
   debugInstructionFlow(pc, instruction) {
@@ -365,76 +355,65 @@ class CPU {
   }
 
   handleInterrupts() {
-    const IE = this.memory.readByte(0xffff);
-    const IF = this.memory.readByte(0xff0f);
-    const pendingInterrupts = IE & IF & 0x1f;
+  const IE = this.memory.readByte(0xffff);
+  const IF = this.memory.readByte(0xff0f);
+  const pendingInterrupts = IE & IF & 0x1f;
 
-    if (this.ime && pendingInterrupts && !this.isHalted && !this.stopMode) {
-      console.log(
-        `🎯 Interrupt triggered: pending=0x${pendingInterrupts.toString(16)}`
-      );
-      this.ime = 0;
-
-      // Find highest priority interrupt
-      let interruptBit = 0;
-      if (pendingInterrupts & 0x01) interruptBit = 0x01; // VBlank
-      else if (pendingInterrupts & 0x02) interruptBit = 0x02; // LCD STAT
-      else if (pendingInterrupts & 0x04) interruptBit = 0x04; // Timer
-      else if (pendingInterrupts & 0x08) interruptBit = 0x08; // Serial
-      else if (pendingInterrupts & 0x10) interruptBit = 0x10; // Joypad
-
-      if (interruptBit !== 0) {
-        this.serviceInterrupt(interruptBit);
-        this.increaseCPUCycle(20); // 🚨 WICHTIG: 20 Zyklen für Interrupt
-      }
-    }
+  // Debug output
+  if (pendingInterrupts && (this.isHalted || this.stopMode)) {
+    console.log(`🔔 Interrupt pending during STOP/HALT: 0x${pendingInterrupts.toString(16)} IME=${this.ime} PC=0x${this.getPC().toString(16)}`);
   }
 
-  serviceInterrupt(interruptBit) {
-    console.log(
-        `🔍 INTERRUPT START: PC=0x${this.getPC().toString(16)} SP=0x${this.getSP().toString(16)}`
-    );
+  // Normale Interrupt-Ausführung (nur wenn IME enabled)
+  if (this.ime && pendingInterrupts && !this.isHalted && !this.stopMode) {
+    console.log(`🔔 Servicing interrupt: 0x${pendingInterrupts.toString(16)} at PC=0x${this.getPC().toString(16)}`);
+    this.ime = 0;
 
+    // Höchste Priorität Interrupt finden
+    let interruptBit = 0;
+    if (pendingInterrupts & 0x01) interruptBit = 0x01;      // VBlank
+    else if (pendingInterrupts & 0x02) interruptBit = 0x02; // LCD STAT
+    else if (pendingInterrupts & 0x04) interruptBit = 0x04; // Timer
+    else if (pendingInterrupts & 0x08) interruptBit = 0x08; // Serial
+    else if (pendingInterrupts & 0x10) interruptBit = 0x10; // Joypad
+
+    if (interruptBit !== 0) {
+      this.serviceInterrupt(interruptBit);
+      this.increaseCPUCycle(20);
+    }
+  }
+}
+
+  serviceInterrupt(interruptBit) {
     // Clear the specific interrupt flag in IF register
     const IF = this.memory.readByte(0xff0f);
     this.memory.writeByte(0xff0f, IF & ~interruptBit);
-    
-    // 🚨 WICHTIG: Return-Adresse ist der aktuelle PC (nicht PC + Len)
+
+    // Disable interrupts
+    this.ime = 0;
+
+    // Get return address (current PC)
     const returnAddr = this.getPC();
 
-    // ✅ KORREKT: Zuerst SP verringern, dann schreiben (wie im echten GB)
-    // High byte zuerst pushen
+    // Push return address onto stack (HIGH byte first, then LOW byte)
     this.decreaseSP(1);
-    const spAfterFirstDecrease = this.getSP(); // Store SP after first decrease
-    this.memory.writeByte(spAfterFirstDecrease, (returnAddr >> 8) & 0xff); // High byte
-    this.debugStackOperation("PUSH_HIGH", spAfterFirstDecrease, (returnAddr >> 8) & 0xff);
-    
-    // Low byte pushen
+    this.memory.writeByte(this.getSP(), (returnAddr >> 8) & 0xff); // High byte
+
     this.decreaseSP(1);
-    const spAfterSecondDecrease = this.getSP(); // Store SP after second decrease
-    this.memory.writeByte(spAfterSecondDecrease, returnAddr & 0xff); // Low byte
-    this.debugStackOperation("PUSH_LOW", spAfterSecondDecrease, returnAddr & 0xff);
-    
-    console.log(
-        `🔍 STACK PUSH: PC=0x${returnAddr.toString(16)} -> [0x${(spAfterSecondDecrease + 1).toString(16)}]=0x${((returnAddr >> 8) & 0xff).toString(16)} [0x${spAfterSecondDecrease.toString(16)}]=0x${(returnAddr & 0xff).toString(16)}`
-    );
+    this.memory.writeByte(this.getSP(), returnAddr & 0xff); // Low byte
 
     // Jump to interrupt vector
     const vectors = {
-        0x01: 0x40, // VBlank
-        0x02: 0x48, // LCD STAT
-        0x04: 0x50, // Timer
-        0x08: 0x58, // Serial
-        0x10: 0x60, // Joypad
+      0x01: 0x40, // VBlank
+      0x02: 0x48, // LCD STAT
+      0x04: 0x50, // Timer
+      0x08: 0x58, // Serial
+      0x10: 0x60, // Joypad
     };
 
     this.setPC(vectors[interruptBit] || 0x40);
     this.interruptOccurred = true;
-
-    console.log(
-        `🔍 INTERRUPT END: PC=0x${this.getPC().toString(16)} SP=0x${this.getSP().toString(16)}`
-    );
-}
+  }
   debugSP() {
     // Erweitere die Bedingungen für das Debugging
     if (this.getPC() >= 0xc2b0 && this.getPC() <= 0xc2d0) {
@@ -546,26 +525,61 @@ class CPU {
     if (this.cbModeActive) {
       this.cbModeActive = false;
       const instruction = InstructionSet.getCBInstruction(opcode);
-      // console.log(
-      //   `🔍 DECODE CB: 0x${opcode.toString(
-      //     16
-      //   )} -> ${instruction.getInstruction()} at PC=0x${this.getPC().toString(16)}`
-      // );
       return instruction;
     }
 
     const instruction = InstructionSet.getInstruction(opcode);
 
-    // console.log(
-    //   `🔍 DECODE: 0x${opcode.toString(
-    //     16
-    //   )} -> ${instruction.getInstruction()} at PC=0x${this.getPC().toString(16)}`
-    // );
     return instruction;
+  }
+  // Füge diese Methode zur CPU-Klasse hinzu
+  debug16BitOperation(opcode, phase) {
+    const opcodeNames = {
+      0x0b: "DEC BC",
+      0x1b: "DEC DE",
+      0x2b: "DEC HL",
+      0x03: "INC BC",
+      0x13: "INC DE",
+      0x23: "INC HL",
+      0x09: "ADD HL,BC",
+      0x19: "ADD HL,DE",
+      0x29: "ADD HL,HL",
+    };
+
+    console.log(`🧪 16-bit ${phase}: ${opcodeNames[opcode]}`);
+    console.log(
+      `   Registers: BC=0x${this.getBC()
+        .toString(16)
+        .padStart(4, "0")} DE=0x${this.getDE()
+        .toString(16)
+        .padStart(4, "0")} HL=0x${this.getHL().toString(16).padStart(4, "0")}`
+    );
+    console.log(
+      `   Flags: Z=${this.getZFlag()} N=${this.getNFlag()} H=${this.getHFlag()} C=${this.getCFlag()}`
+    );
+    console.log(
+      `   F-Register: 0x${this.getF().toString(16).padStart(2, "0")}`
+    );
+
+    if (phase === "AFTER") {
+      console.log(`   ---`);
+    }
   }
   //and finally, instruction execution.
   execute(instruction) {
+    // Debug für 16-Bit Operationen
+    const opcode = this.memory.readByte(this.getPC());
+    const testOpcodes = [0x0b, 0x1b, 0x2b, 0x03, 0x13, 0x23, 0x09, 0x19, 0x29];
+
+    // if (testOpcodes.includes(opcode)) {
+    //   this.debug16BitOperation(opcode, "BEFORE");
+    // }
+
     InstructionSet.executeInstruction(this, instruction);
+
+    // if (testOpcodes.includes(opcode)) {
+    //   this.debug16BitOperation(opcode, "AFTER");
+    // }
   }
   wait() {
     // let currentCPUCycle = this.getCPUCycle();
@@ -1529,7 +1543,19 @@ class CPU {
   }
   //Accumulator
   setAF(value) {
-    this.AF = value;
+    const a = (value & 0xff00) >> 8;
+    const f = value & 0x00ff;
+
+    this.setA(a);
+
+    // Nutze updateFlags für konsistentes Flag-Handling
+    this.updateFlags(
+      (f & 0x80) !== 0, // Z
+      (f & 0x40) !== 0, // N
+      (f & 0x20) !== 0, // H
+      (f & 0x10) !== 0 // C
+    );
+    // Untere 4 Bits werden automatisch auf 0 gesetzt
   }
   getAF() {
     return this.AF;
@@ -1548,76 +1574,86 @@ class CPU {
   getA() {
     return (this.AF & 0xff00) >> 8;
   }
-  /**
-   * Set the lower 8 bits of the AF register to the lower 8 bits of the value parameter.
-   * @param {number} value - The value to set the register to.
-   */
-  setF(value) {
-    this.AF = (this.AF & 0xff00) | (value & 0xf0); // nur obere 4 Bits
-  }
-  /**
-   * This function returns the value of the F register.
-   * @returns The lower 8 bits of the AF register as 0x00FF.
-   */
+
+  //Flags
   getF() {
     return this.AF & 0xff;
   }
 
-  //Flags
-  setZFlag(value) {
-    if (value !== 0) {
-      // Set Z flag to 1 by setting the 7th bit of F
-      this.setF(this.getF() | 0x80);
-    } else {
-      // Clear Z flag to 0 by clearing the 7th bit of F
-      this.setF(this.getF() & 0x7f);
-    }
-  }
-
+  // ✅ GETTER für einzelne Flags
   getZFlag() {
     return (this.getF() & 0x80) >> 7;
-  }
-
-  setNFlag(value) {
-    if (value !== 0) {
-      // Set N flag to 1 by setting the 6th bit of F
-      this.setF(this.getF() | 0x40);
-    } else {
-      // Clear N flag to 0 by clearing the 6th bit of F
-      this.setF(this.getF() & 0xbf);
-    }
   }
 
   getNFlag() {
     return (this.getF() & 0x40) >> 6;
   }
 
-  setHFlag(value) {
-    if (value !== 0) {
-      // Set H flag to 1 by setting the 5th bit of F
-      this.setF(this.getF() | 0x20);
-    } else {
-      // Clear H flag to 0 by clearing the 5th bit of F
-      this.setF(this.getF() & 0xdf);
-    }
-  }
-
   getHFlag() {
     return (this.getF() & 0x20) >> 5;
   }
 
-  setCFlag(value) {
-    if (value !== 0) {
-      // Set C flag to 1 by setting the 4th bit of F
-      this.setF(this.getF() | 0x10);
-    } else {
-      // Clear C flag to 0 by clearing the 4th bit of F
-      this.setF(this.getF() & 0xef);
-    }
-  }
-
   getCFlag() {
     return (this.getF() & 0x10) >> 4;
+  }
+
+  // ✅ ZENTRALE Flag-Update Methode
+  updateFlags(z, n, h, c) {
+    let newF = 0;
+    if (z) newF |= 0x80; // Z Flag
+    if (n) newF |= 0x40; // N Flag
+    if (h) newF |= 0x20; // H Flag
+    if (c) newF |= 0x10; // C Flag
+    // Untere 4 Bits bleiben 0
+
+    this.AF = (this.AF & 0xff00) | newF;
+  }
+
+  // ✅ SETTER für einzelne Flags
+  setZFlag(value) {
+    this.updateFlags(
+      value !== 0,
+      this.getNFlag(),
+      this.getHFlag(),
+      this.getCFlag()
+    );
+  }
+
+  setNFlag(value) {
+    this.updateFlags(
+      this.getZFlag(),
+      value !== 0,
+      this.getHFlag(),
+      this.getCFlag()
+    );
+  }
+
+  setHFlag(value) {
+    this.updateFlags(
+      this.getZFlag(),
+      this.getNFlag(),
+      value !== 0,
+      this.getCFlag()
+    );
+  }
+
+  setCFlag(value) {
+    this.updateFlags(
+      this.getZFlag(),
+      this.getNFlag(),
+      this.getHFlag(),
+      value !== 0
+    );
+  }
+
+  // ✅ SETTER für komplettes F-Register
+  setF(value) {
+    this.updateFlags(
+      (value & 0x80) !== 0,
+      (value & 0x40) !== 0,
+      (value & 0x20) !== 0,
+      (value & 0x10) !== 0
+    );
   }
 
   //Register  BC, DE and HL
@@ -1694,15 +1730,16 @@ class CPU {
     };
   }
   // Hilfsfunktion für DEC eines 8-Bit-Registers
-  dec8bit(getReg, setReg) {
-    const val = getReg();
-    const result = (val - 1) & 0xff;
+  dec8bit(getter, setter) {
+    const oldValue = getter();
+    const newValue = (oldValue - 1) & 0xff;
 
-    setReg(result);
+    setter(newValue);
 
-    this.setZFlag(result === 0 ? 1 : 0);
+    this.setZFlag(newValue === 0 ? 1 : 0);
     this.setNFlag(1);
-    this.setHFlag((val & 0x0f) === 0 ? 1 : 0);
+    this.setHFlag((oldValue & 0x0f) === 0 ? 1 : 0);
+    // Carry flag wird NICHT beeinflusst bei DEC
   }
 
   // Hilfsfunktion für DEC eines 16-Bit-Registers
@@ -1710,6 +1747,19 @@ class CPU {
     const result = (getReg() - 1) & 0xffff;
     setReg(result);
     // Z und H bleiben unverändert
+  }
+  add16Flags(value1, value2, result) {
+    this.setNFlag(0);
+    this.setHFlag((value1 & 0x0fff) + (value2 & 0x0fff) > 0x0fff ? 1 : 0);
+    this.setCFlag(result > 0xffff ? 1 : 0);
+  }
+
+  // Flags für 8-bit signed Addition zu 16-bit Wert
+  addSigned8To16Flags(value16, value8, result) {
+    this.setZFlag(0);
+    this.setNFlag(0);
+    this.setHFlag((value16 & 0x0f) + (value8 & 0x0f) > 0x0f ? 1 : 0);
+    this.setCFlag((value16 & 0xff) + (value8 & 0xff) > 0xff ? 1 : 0);
   }
   toUnsigned16Bit(LSBValue, MSBValue) {
     return (MSBValue << 8) | LSBValue;

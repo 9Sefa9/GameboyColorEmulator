@@ -18,21 +18,7 @@ class MBC1 {
     // GBC: SVBK Register initialisieren (WRAM Bank Control)
     this.ioRegisters[0x70] = 0x01; // Start with bank 1
   }
-  reset() {
-    this.ram = new Uint8Array(this.ramSize);
-    this.wram = new Uint8Array(0x8000);
-    this.vram = new Uint8Array(0x2000);
-    this.oam = new Uint8Array(0xa0);
-    this.ioRegisters = new Uint8Array(0x80);
-    this.zram = new Uint8Array(0x7f);
-    this.interruptEnabled = 0;
-
-    this.romBank = 1;
-    this.ramBank = 0;
-    this.mode = 0;
-    this.ramEnabled = false;
-    this.ioRegisters[0x70] = 0x01;
-  }
+ 
   readByte(address, cpu = null) {
     if (address > 0xffff) {
       console.error(

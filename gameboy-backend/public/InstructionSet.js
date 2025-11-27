@@ -289,42 +289,42 @@ class InstructionSet extends CPU {
     );
     this.opcodeList.set(
       0x58,
-      new Opcode("LD", "E,B", 0x58, 4, 4, false, (cpu) => {
+      new Opcode("LD", "E,B", 0x58, 4, 1, false, (cpu) => {
         cpu.setE(cpu.getB());
       })
     );
 
     this.opcodeList.set(
       0x59,
-      new Opcode("LD", "E,C", 0x59, 4, 4, false, (cpu) => {
+      new Opcode("LD", "E,C", 0x59, 4, 1, false, (cpu) => {
         cpu.setE(cpu.getC());
       })
     );
 
     this.opcodeList.set(
       0x5a,
-      new Opcode("LD", "E,D", 0x5a, 4, 4, false, (cpu) => {
+      new Opcode("LD", "E,D", 0x5a, 4, 1, false, (cpu) => {
         cpu.setE(cpu.getD());
       })
     );
 
     this.opcodeList.set(
       0x5b,
-      new Opcode("LD", "E,E", 0x5b, 4, 4, false, (cpu) => {
+      new Opcode("LD", "E,E", 0x5b, 4, 1, false, (cpu) => {
         cpu.setE(cpu.getE());
       })
     );
 
     this.opcodeList.set(
       0x5c,
-      new Opcode("LD", "E,H", 0x5c, 4, 4, false, (cpu) => {
+      new Opcode("LD", "E,H", 0x5c, 4, 1, false, (cpu) => {
         cpu.setE(cpu.getH());
       })
     );
 
     this.opcodeList.set(
       0x5d,
-      new Opcode("LD", "E,L", 0x5d, 4, 4, false, (cpu) => {
+      new Opcode("LD", "E,L", 0x5d, 4, 1, false, (cpu) => {
         cpu.setE(cpu.getL());
       })
     );
@@ -735,22 +735,22 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0xf5,
       new Opcode("PUSH", "AF", 0xf5, 16, 1, false, (cpu) => {
+        const value = cpu.getAF();
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getA()); // A (high byte) ZUERST
-
+        cpu.memory.writeByte(cpu.getSP(), (value >> 8) & 0xff); // High byte (A)
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getF()); // F (low byte) DANACH
+        cpu.memory.writeByte(cpu.getSP(), value & 0xff); // Low byte (F)
       })
     );
     // PUSH DE (0xd5)
     this.opcodeList.set(
       0xd5,
       new Opcode("PUSH", "DE", 0xd5, 16, 1, false, (cpu) => {
+        const value = cpu.getDE();
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getD()); // D (high byte) ZUERST
-
+        cpu.memory.writeByte(cpu.getSP(), (value >> 8) & 0xff); // High byte (D)
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getE()); // E (low byte) DANACH
+        cpu.memory.writeByte(cpu.getSP(), value & 0xff); // Low byte (E)
       })
     );
 
@@ -758,11 +758,11 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0xc5,
       new Opcode("PUSH", "BC", 0xc5, 16, 1, false, (cpu) => {
+        const value = cpu.getBC();
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getB()); // B (high byte) ZUERST
-
+        cpu.memory.writeByte(cpu.getSP(), (value >> 8) & 0xff); // High byte (B)
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getC()); // C (low byte) DANACH
+        cpu.memory.writeByte(cpu.getSP(), value & 0xff); // Low byte (C)
       })
     );
 
@@ -770,302 +770,192 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0xe5,
       new Opcode("PUSH", "HL", 0xe5, 16, 1, false, (cpu) => {
+        const value = cpu.getHL();
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getH()); // H (high byte) ZUERST
-
+        cpu.memory.writeByte(cpu.getSP(), (value >> 8) & 0xff); // High byte (H)
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getL()); // L (low byte) DANACH
+        cpu.memory.writeByte(cpu.getSP(), value & 0xff); // Low byte (L)
       })
     );
+    // CORRECTED POP AF (0xf1)
     this.opcodeList.set(
       0xf1,
       new Opcode("POP", "AF", 0xf1, 12, 1, false, (cpu) => {
-        const lowByte = cpu.memory.readByte(cpu.getSP()); // F register (low)
-        cpu.increaseSP(1);
+        const low = cpu.memory.readByte(cpu.getSP());
 
-        const highByte = cpu.memory.readByte(cpu.getSP()); // A register (high)
-        cpu.increaseSP(1);
-
-        cpu.setA(highByte);
-        cpu.setF(lowByte & 0xf0); // Only upper 4 bits for flags
+        const high = cpu.memory.readByte(cpu.getSP() + 1);
+        cpu.increaseSP(2);
+        cpu.setAF((high << 8) | low);
       })
     );
+
+    // CORRECTED POP BC (0xc1)
     this.opcodeList.set(
       0xc1,
       new Opcode("POP", "BC", 0xc1, 12, 1, false, (cpu) => {
-        // ✅ KORREKT: High Byte (B) zuerst, dann Low Byte (C)
-        const lowByte = cpu.memory.readByte(cpu.getSP()); // C (Low Byte)
+        const low = cpu.memory.readByte(cpu.getSP());
         cpu.increaseSP(1);
-        const highByte = cpu.memory.readByte(cpu.getSP()); // B (High Byte)
+        const high = cpu.memory.readByte(cpu.getSP());
         cpu.increaseSP(1);
-
-        const finalValue = (highByte << 8) | lowByte;
-        cpu.setBC(finalValue);
+        cpu.setBC((high << 8) | low);
       })
     );
+
+    // CORRECTED POP DE (0xd1)
     this.opcodeList.set(
       0xd1,
       new Opcode("POP", "DE", 0xd1, 12, 1, false, (cpu) => {
-        // ✅ KORREKT: High Byte (D) zuerst, dann Low Byte (E)
-        const lowByte = cpu.memory.readByte(cpu.getSP()); // E (Low Byte)
+        const low = cpu.memory.readByte(cpu.getSP());
         cpu.increaseSP(1);
-        const highByte = cpu.memory.readByte(cpu.getSP()); // D (High Byte)
+        const high = cpu.memory.readByte(cpu.getSP());
         cpu.increaseSP(1);
-
-        const finalValue = (highByte << 8) | lowByte;
-        cpu.setDE(finalValue);
+        cpu.setDE((high << 8) | low);
       })
     );
+
+    // CORRECTED POP HL (0xe1)
     this.opcodeList.set(
       0xe1,
       new Opcode("POP", "HL", 0xe1, 12, 1, false, (cpu) => {
-        // ✅ KORREKT: High Byte (H) zuerst, dann Low Byte (L)
-        const lowByte = cpu.memory.readByte(cpu.getSP()); // L (Low Byte)
+        const low = cpu.memory.readByte(cpu.getSP());
         cpu.increaseSP(1);
-        const highByte = cpu.memory.readByte(cpu.getSP()); // H (High Byte)
+        const high = cpu.memory.readByte(cpu.getSP());
         cpu.increaseSP(1);
-
-        const finalValue = (highByte << 8) | lowByte;
-        cpu.setHL(finalValue);
+        cpu.setHL((high << 8) | low);
       })
     );
-    // 8-bit arithmetic and logical instructions
-    this.opcodeList.set(
-      0x87,
-      new Opcode("ADD", "A,A", 0x87, 4, 1, false, (cpu) => {
-        /* result, carry_per_bit = A + B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
-        const result = cpu.getA() + cpu.getA();
-        cpu.setA(result);
 
-        if (result == 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
-
-        cpu.setNFlag(0);
-
-        if ((result & 0x0f) > 0x0f) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
-
-        if (result > 0xff) {
-          cpu.setCFlag(1);
-        } else {
-          cpu.setCFlag(0);
-        }
-      })
-    );
     this.opcodeList.set(
       0x80,
       new Opcode("ADD", "A,B", 0x80, 4, 1, false, (cpu) => {
-        /* result, carry_per_bit = A + B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
-        const result = cpu.getA() + ((cpu.getBC() & 0xff00) >> 8);
-        cpu.setA(result);
+        const a = cpu.getA();
+        const b = cpu.getB(); // ✅ Korrekter B-Register Zugriff
+        const result = a + b;
 
-        if (result == 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
+        cpu.setA(result & 0xff); // ✅ Ergebnis maskieren
 
+        // Flags setzen
+        cpu.setZFlag((result & 0xff) === 0 ? 1 : 0); // ✅ Nur niedrige 8 Bits prüfen
         cpu.setNFlag(0);
-
-        if ((result & 0x0f) > 0x0f) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
-
-        if (result > 0xff) {
-          cpu.setCFlag(1);
-        } else {
-          cpu.setCFlag(0);
-        }
+        cpu.setHFlag((a & 0x0f) + (b & 0x0f) > 0x0f ? 1 : 0); // ✅ Korrekte Half-Carry Berechnung
+        cpu.setCFlag(result > 0xff ? 1 : 0); // ✅ Vor Maskierung prüfen
       })
     );
+    // 0x81 ADD A,C
     this.opcodeList.set(
       0x81,
       new Opcode("ADD", "A,C", 0x81, 4, 1, false, (cpu) => {
-        /* result, carry_per_bit = A + B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
-        const result = cpu.getA() + (cpu.getBC() & 0xff);
-        cpu.setA(result);
+        const a = cpu.getA();
+        const c = cpu.getC(); // ✅ Direkt C-Register
+        const result = a + c;
 
-        if (result == 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
-
+        cpu.setA(result & 0xff);
+        cpu.setZFlag((result & 0xff) === 0 ? 1 : 0);
         cpu.setNFlag(0);
-
-        if ((result & 0x0f) > 0x0f) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
-
-        if (result > 0xff) {
-          cpu.setCFlag(1);
-        } else {
-          cpu.setCFlag(0);
-        }
+        cpu.setHFlag((a & 0x0f) + (c & 0x0f) > 0x0f ? 1 : 0);
+        cpu.setCFlag(result > 0xff ? 1 : 0);
       })
     );
     this.opcodeList.set(
       0x82,
       new Opcode("ADD", "A,D", 0x82, 4, 1, false, (cpu) => {
-        /* result, carry_per_bit = A + B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
-        const result = cpu.getA() + ((cpu.getDE() & 0xff00) >> 8);
-        cpu.setA(result);
+        const a = cpu.getA();
+        const d = cpu.getD();
+        const result = a + d;
 
-        if (result == 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
+        // ERWEITERTES DEBUGGING
+        console.log(`🔍 ADD A,D DETAILS:`);
+        console.log(
+          `   A=0x${a.toString(16)}, D=0x${d.toString(
+            16
+          )}, result=0x${result.toString(16)}`
+        );
+        console.log(
+          `   A low=0x${(a & 0x0f).toString(16)}, D low=0x${(d & 0x0f).toString(
+            16
+          )}`
+        );
+        console.log(`   low_sum=0x${((a & 0x0f) + (d & 0x0f)).toString(16)}`);
+        console.log(
+          `   H-Flag calculation: ${(a & 0x0f) + (d & 0x0f)} > ${0x0f} = ${
+            (a & 0x0f) + (d & 0x0f) > 0x0f
+          }`
+        );
 
+        // KORREKTE Half-Carry Berechnung für 0x01 + 0x1F
+        const halfCarry = (a & 0x0f) + (d & 0x0f) > 0x0f;
+
+        cpu.setA(result & 0xff);
+        cpu.setZFlag((result & 0xff) === 0 ? 1 : 0);
         cpu.setNFlag(0);
+        cpu.setHFlag(halfCarry ? 1 : 0);
+        cpu.setCFlag(result > 0xff ? 1 : 0);
 
-        if ((result & 0x0f) > 0x0f) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
-
-        if (result > 0xff) {
-          cpu.setCFlag(1);
-        } else {
-          cpu.setCFlag(0);
-        }
+        console.log(
+          `   Final Flags: Z=${cpu.getZFlag()}, N=${cpu.getNFlag()}, H=${cpu.getHFlag()}, C=${cpu.getCFlag()}`
+        );
+        console.log(`   PC after ADD: 0x${cpu.getPC().toString(16)}`);
       })
     );
+    // 0x83 ADD A,E
     this.opcodeList.set(
       0x83,
       new Opcode("ADD", "A,E", 0x83, 4, 1, false, (cpu) => {
-        /* result, carry_per_bit = A + B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
-        const result = cpu.getA() + (cpu.getDE() & 0xff);
-        cpu.setA(result);
+        const a = cpu.getA();
+        const e = cpu.getE();
+        const result = a + e;
 
-        if (result == 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
-
+        cpu.setA(result & 0xff);
+        cpu.setZFlag((result & 0xff) === 0 ? 1 : 0);
         cpu.setNFlag(0);
-
-        if ((result & 0x0f) > 0x0f) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
-
-        if (result > 0xff) {
-          cpu.setCFlag(1);
-        } else {
-          cpu.setCFlag(0);
-        }
+        cpu.setHFlag((a & 0x0f) + (e & 0x0f) > 0x0f ? 1 : 0);
+        cpu.setCFlag(result > 0xff ? 1 : 0);
       })
     );
+    // 0x84 ADD A,H
     this.opcodeList.set(
       0x84,
       new Opcode("ADD", "A,H", 0x84, 4, 1, false, (cpu) => {
-        /* result, carry_per_bit = A + B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
-        const result = cpu.getA() + ((cpu.getHL() & 0xff00) >> 8);
-        cpu.setA(result);
+        const a = cpu.getA();
+        const h = cpu.getH();
+        const result = a + h;
 
-        if (result == 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
-
+        cpu.setA(result & 0xff);
+        cpu.setZFlag((result & 0xff) === 0 ? 1 : 0);
         cpu.setNFlag(0);
-
-        if ((result & 0x0f) > 0x0f) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
-
-        if (result > 0xff) {
-          cpu.setCFlag(1);
-        } else {
-          cpu.setCFlag(0);
-        }
+        cpu.setHFlag((a & 0x0f) + (h & 0x0f) > 0x0f ? 1 : 0);
+        cpu.setCFlag(result > 0xff ? 1 : 0);
       })
     );
+
+    // 0x85 ADD A,L
     this.opcodeList.set(
       0x85,
       new Opcode("ADD", "A,L", 0x85, 4, 1, false, (cpu) => {
-        /* result, carry_per_bit = A + B
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 0
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
-        const result = cpu.getA() + (cpu.getHL() & 0xff);
-        cpu.setA(result);
+        const a = cpu.getA();
+        const l = cpu.getL();
+        const result = a + l;
 
-        if (result == 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
-
+        cpu.setA(result & 0xff);
+        cpu.setZFlag((result & 0xff) === 0 ? 1 : 0);
         cpu.setNFlag(0);
+        cpu.setHFlag((a & 0x0f) + (l & 0x0f) > 0x0f ? 1 : 0);
+        cpu.setCFlag(result > 0xff ? 1 : 0);
+      })
+    );
 
-        if ((result & 0x0f) > 0x0f) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
+    // 0x87 ADD A,A
+    this.opcodeList.set(
+      0x87,
+      new Opcode("ADD", "A,A", 0x87, 4, 1, false, (cpu) => {
+        const a = cpu.getA();
+        const result = a + a;
 
-        if (result > 0xff) {
-          cpu.setCFlag(1);
-        } else {
-          cpu.setCFlag(0);
-        }
+        cpu.setA(result & 0xff);
+        cpu.setZFlag((result & 0xff) === 0 ? 1 : 0);
+        cpu.setNFlag(0);
+        cpu.setHFlag((a & 0x0f) + (a & 0x0f) > 0x0f ? 1 : 0);
+        cpu.setCFlag(result > 0xff ? 1 : 0);
       })
     );
     this.opcodeList.set(
@@ -1101,12 +991,18 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0x09,
       new Opcode("ADD", "HL,BC", 0x09, 8, 1, false, (cpu) => {
+        // 8 Zyklen, nicht 11!
         const hl = cpu.getHL();
         const bc = cpu.getBC();
         const result = hl + bc;
 
+        // Flags setzen - Z-Flag bleibt UNVERÄNDERT!
         cpu.setNFlag(0);
+
+        // Korrekte Half-Carry Berechnung: Prüfe Übertrag von Bit 11
         cpu.setHFlag((hl & 0x0fff) + (bc & 0x0fff) > 0x0fff ? 1 : 0);
+
+        // Korrekte Carry Berechnung
         cpu.setCFlag(result > 0xffff ? 1 : 0);
 
         cpu.setHL(result & 0xffff);
@@ -1114,6 +1010,7 @@ class InstructionSet extends CPU {
     );
 
     // ADD HL,DE (0x19) - Z-Flag NICHT ändern!
+    // ✅ KORREKT: ADD HL,DE (0x19) - 11 Zyklen
     this.opcodeList.set(
       0x19,
       new Opcode("ADD", "HL,DE", 0x19, 8, 1, false, (cpu) => {
@@ -1128,20 +1025,23 @@ class InstructionSet extends CPU {
         cpu.setHL(result & 0xffff);
       })
     );
+
+    // ADD HL,HL (0x29)
     this.opcodeList.set(
       0x29,
       new Opcode("ADD", "HL,HL", 0x29, 8, 1, false, (cpu) => {
         const hl = cpu.getHL();
-        const result = hl + hl;
+        const result = hl * 2;
 
         cpu.setNFlag(0);
-        cpu.setHFlag((hl & 0x0fff) + (hl & 0x0fff) > 0x0fff ? 1 : 0);
-        cpu.setCFlag(result > 0xffff ? 1 : 0);
+        cpu.setHFlag((hl & 0x0fff) > 0x07ff ? 1 : 0);
+        cpu.setCFlag(hl > 0x7fff ? 1 : 0);
 
         cpu.setHL(result & 0xffff);
       })
     );
-    // ADD HL,SP (0x39) - Z-Flag NICHT ändern!
+
+    // ADD HL,SP (0x39)
     this.opcodeList.set(
       0x39,
       new Opcode("ADD", "HL,SP", 0x39, 8, 1, false, (cpu) => {
@@ -1451,25 +1351,17 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0x9f,
       new Opcode("SBC", "A,A", 0x9f, 4, 1, false, (cpu) => {
-        /* n = read(PC++)
-                result, carry_per_bit = A - n
-                A = result
-                flags.Z = 1 if result == 0 else 0
-                flags.N = 1
-                flags.H = 1 if carry_per_bit[3] else 0
-                flags.C = 1 if carry_per_bit[7] else 0
-            */
         const a = cpu.getA();
         const carry = cpu.getCFlag();
 
-        const result = a - a - carry;
+        // SBC A,A ist immer -carry
+        const result = (0 - carry) & 0xff;
 
-        cpu.setZFlag((result & 0xff) === 0);
+        cpu.setA(result);
+        cpu.setZFlag(result === 0 ? 1 : 0);
         cpu.setNFlag(1);
-        cpu.setHFlag((a & 0x0f) - (a & 0x0f) - carry < 0);
-        cpu.setCFlag(result < 0);
-
-        cpu.setA(result & 0xff);
+        cpu.setHFlag(carry !== 0 ? 1 : 0); // Wenn carry=1, dann borrow von bit 4
+        cpu.setCFlag(carry); // Carry bleibt gleich wie Eingangs-Carry
       })
     );
     this.opcodeList.set(
@@ -1741,25 +1633,13 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0x3c,
       new Opcode("INC", "A", 0x3c, 4, 1, false, (cpu) => {
-        const AF = cpu.getAF();
-        const A = ((AF >> 8) & 0xff) + 1;
-        const carryPerBit = AF + 0x100;
-        const newAF = (A << 8) | (AF & 0xff);
-        cpu.setAF(newAF);
+        const oldA = cpu.getA();
+        const newA = (oldA + 1) & 0xff;
+        cpu.setA(newA);
 
-        if (A === 0) {
-          cpu.setZFlag(1);
-        } else {
-          cpu.setZFlag(0);
-        }
-
+        cpu.setZFlag(newA === 0 ? 1 : 0);
         cpu.setNFlag(0);
-
-        if ((carryPerBit & 0x0f00) > 0x0f00) {
-          cpu.setHFlag(1);
-        } else {
-          cpu.setHFlag(0);
-        }
+        cpu.setHFlag((oldA & 0x0f) === 0x0f ? 1 : 0);
       })
     );
     this.opcodeList.set(
@@ -1858,6 +1738,7 @@ class InstructionSet extends CPU {
       0x03,
       new Opcode("INC", "BC", 0x03, 8, 1, false, (cpu) => {
         cpu.setBC((cpu.getBC() + 1) & 0xffff);
+        // ❌ KEINE Flags setzen bei 16-bit INC!
       })
     );
 
@@ -1878,7 +1759,8 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0x33,
       new Opcode("INC", "SP", 0x33, 8, 1, false, (cpu) => {
-        cpu.setSP((cpu.getSP() + 1) & 0xffff);
+        cpu.increaseSP(1);
+        cpu.setSP(cpu.getSP() & 0xffff);
       })
     );
 
@@ -1955,15 +1837,16 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0x35,
       new Opcode("DEC", "(HL)", 0x35, 12, 1, false, (cpu) => {
-        // 12 Zyklen korrigiert
         const address = cpu.getHL();
-        const data = cpu.memory.readByte(address);
-        const result = (data - 1) & 0xff;
-        cpu.memory.writeByte(address, result);
+        const oldValue = cpu.memory.readByte(address);
+        const newValue = (oldValue - 1) & 0xff;
 
-        cpu.setZFlag(result === 0 ? 1 : 0);
+        cpu.memory.writeByte(address, newValue);
+
+        cpu.setZFlag(newValue === 0 ? 1 : 0);
         cpu.setNFlag(1);
-        cpu.setHFlag((data & 0x0f) === 0 ? 1 : 0); // Korrekt: Half Carry wenn untere 4 Bits 0 waren
+        // ✅ KORREKT: Half-Carry wenn kein Borrow von bit 4
+        cpu.setHFlag((oldValue & 0x0f) === 0 ? 1 : 0);
       })
     );
 
@@ -1973,6 +1856,7 @@ class InstructionSet extends CPU {
       0x0b,
       new Opcode("DEC", "BC", 0x0b, 8, 1, false, (cpu) => {
         cpu.setBC((cpu.getBC() - 1) & 0xffff);
+        // ❌ KEINE Flags setzen bei 16-bit DEC!
       })
     );
 
@@ -1981,6 +1865,7 @@ class InstructionSet extends CPU {
       0x1b,
       new Opcode("DEC", "DE", 0x1b, 8, 1, false, (cpu) => {
         cpu.setDE((cpu.getDE() - 1) & 0xffff);
+        // ✅ KEINE Flags ändern bei 16-bit DEC!
       })
     );
 
@@ -1995,7 +1880,8 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0x3b,
       new Opcode("DEC", "SP", 0x3b, 8, 1, false, (cpu) => {
-        cpu.setSP((cpu.getSP() - 1) & 0xffff);
+        cpu.decreaseSP(1);
+        cpu.setSP(cpu.getSP() & 0xffff);
       })
     );
 
@@ -2624,7 +2510,7 @@ class InstructionSet extends CPU {
 
         cpu.setB(result);
 
-        cpu.setZFlag(result === 0);
+        cpu.setZFlag(result === 0 ? 1:0);
         cpu.setNFlag(0);
         cpu.setHFlag(0);
         cpu.setCFlag(0);
@@ -2696,7 +2582,7 @@ class InstructionSet extends CPU {
 
         if (!cpu.getZFlag()) {
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 4); // 4 + 12 = 16 Zyklen
+          // 4 + 12 = 16 Zyklen
         } else {
           cpu.increasePC(3);
         }
@@ -2711,7 +2597,7 @@ class InstructionSet extends CPU {
 
         if (cpu.getZFlag()) {
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 4); // 4 + 12 = 16 Zyklen
+          // 4 + 12 = 16 Zyklen
         } else {
           cpu.increasePC(3);
         }
@@ -2726,7 +2612,7 @@ class InstructionSet extends CPU {
 
         if (!cpu.getCFlag()) {
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 4); // 4 + 12 = 16 Zyklen
+          // 4 + 12 = 16 Zyklen
         } else {
           cpu.increasePC(3);
         }
@@ -2741,7 +2627,7 @@ class InstructionSet extends CPU {
 
         if (cpu.getCFlag()) {
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 4); // 4 + 12 = 16 Zyklen
+          // 4 + 12 = 16 Zyklen
         } else {
           cpu.increasePC(3);
         }
@@ -2833,15 +2719,16 @@ class InstructionSet extends CPU {
     );
 
     // RL für A (0x17) - bereits vorhanden, aber sicherstellen
-    this.cbOpcodeList.set(
+    this.opcodeList.set(
       0x17,
-      new Opcode("RL", "A", 0x17, 8, 2, false, (cpu) => {
-        let a = cpu.getA();
-        let carryIn = cpu.getCFlag();
-        let msb = (a >> 7) & 1;
-        let result = ((a << 1) | carryIn) & 0xff;
+      new Opcode("RLA", "", 0x17, 4, 1, false, (cpu) => {
+        const a = cpu.getA();
+        const carryIn = cpu.getCFlag();
+        const msb = (a >> 7) & 1;
+        const result = ((a << 1) | carryIn) & 0xff;
+
         cpu.setA(result);
-        cpu.setZFlag(result === 0 ? 1 : 0);
+        cpu.setZFlag(0); // RLA setzt Z-Flag immer auf 0
         cpu.setNFlag(0);
         cpu.setHFlag(0);
         cpu.setCFlag(msb);
@@ -2851,18 +2738,18 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0xcd,
       new Opcode("CALL", "nn", 0xcd, 24, 3, true, (cpu) => {
-        const low = cpu.memory.readByte(cpu.getPC() + 1);
-        const high = cpu.memory.readByte(cpu.getPC() + 2);
-        const addr = (high << 8) | low;
-        const returnAddr = cpu.getPC() + 3;
+        const returnAddr = cpu.getPC() + 3; // ← Wichtig: +3 nicht +1!
 
-        // Stack in korrekter Reihenfolge: High zuerst, dann Low
+        // Push HIGH byte zuerst, dann LOW byte
         cpu.decreaseSP(1);
         cpu.memory.writeByte(cpu.getSP(), (returnAddr >> 8) & 0xff);
         cpu.decreaseSP(1);
         cpu.memory.writeByte(cpu.getSP(), returnAddr & 0xff);
 
-        cpu.setPC(addr);
+        // Jump zur neuen Adresse
+        const low = cpu.memory.readByte(cpu.getPC() + 1);
+        const high = cpu.memory.readByte(cpu.getPC() + 2);
+        cpu.setPC((high << 8) | low);
       })
     );
     this.opcodeList.set(
@@ -2882,7 +2769,6 @@ class InstructionSet extends CPU {
           cpu.memory.writeByte(cpu.getSP(), returnAddr & 0xff);
 
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
         } else {
           cpu.increasePC(3);
         }
@@ -2906,7 +2792,6 @@ class InstructionSet extends CPU {
           cpu.memory.writeByte(cpu.getSP(), returnAddr & 0xff);
 
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
         } else {
           // Nur PC erhöhen, keine weiteren Aktionen
           cpu.increasePC(3);
@@ -2930,7 +2815,6 @@ class InstructionSet extends CPU {
           cpu.memory.writeByte(cpu.getSP(), returnAddr & 0xff);
 
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
         } else {
           // Nur PC erhöhen, keine weiteren Aktionen
           cpu.increasePC(3);
@@ -2954,7 +2838,6 @@ class InstructionSet extends CPU {
           cpu.memory.writeByte(cpu.getSP(), returnAddr & 0xff);
 
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
         } else {
           // Nur PC erhöhen, keine weiteren Aktionen
           cpu.increasePC(3);
@@ -3056,18 +2939,17 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0xd9,
       new Opcode("RETI", "", 0xd9, 16, 1, true, (cpu) => {
-        // Zuerst RET Logic
-        const lowByte = cpu.memory.readByte(cpu.getSP());
-        cpu.increaseSP(1);
-        const highByte = cpu.memory.readByte(cpu.getSP());
-        cpu.increaseSP(1);
-        const returnAddr = (highByte << 8) | lowByte;
+        // Korrekte Little-Endian Lesereihenfolge
+        const low = cpu.memory.readByte(cpu.getSP());
+        const high = cpu.memory.readByte(cpu.getSP() + 1);
+        const returnAddr = (high << 8) | low;
 
+        cpu.increaseSP(2);
         cpu.setPC(returnAddr);
 
-        // Dann interrupts aktivieren - SOFORT!
+        // Dann interrupts aktivieren
         cpu.setIme(1);
-        cpu.setImeScheduled(0); // ✅ Wichtig: IME Scheduled zurücksetzen
+        cpu.setImeScheduled(0);
       })
     );
     // Korrektur für SET-Instruktionen
@@ -3167,13 +3049,15 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0xc9,
       new Opcode("RET", "", 0xc9, 16, 1, true, (cpu) => {
+        // ← handlesPC: true
         const low = cpu.memory.readByte(cpu.getSP());
-        cpu.increaseSP(1);
+        const high = cpu.memory.readByte(cpu.getSP() + 1);
+        cpu.increaseSP(2);
 
-        const high = cpu.memory.readByte(cpu.getSP());
-        cpu.increaseSP(1);
-
+        // ✅ Setze PC direkt - KEIN increasePC() nötig!
         cpu.setPC((high << 8) | low);
+
+        // ❌ KEIN cpu.increasePC() hier, weil handlesPC=true!
       })
     );
 
@@ -3182,16 +3066,14 @@ class InstructionSet extends CPU {
       0xc0,
       new Opcode("RET", "nz", 0xc0, 8, 1, true, (cpu) => {
         if (cpu.getZFlag() === 0) {
-          const lowByte = cpu.memory.readByte(cpu.getSP());
-          const highByte = cpu.memory.readByte(cpu.getSP() + 1);
-          const returnAddr = (highByte << 8) | lowByte;
+          const low = cpu.memory.readByte(cpu.getSP());
+          const high = cpu.memory.readByte(cpu.getSP() + 1);
+          const returnAddr = (high << 8) | low;
 
           cpu.increaseSP(2);
           cpu.setPC(returnAddr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
-        } else {
-          cpu.increasePC(1);
         }
+        // Wenn Bedingung nicht erfüllt, passiert nichts (PC wird automatisch erhöht)
       })
     );
 
@@ -3206,7 +3088,6 @@ class InstructionSet extends CPU {
 
           cpu.increaseSP(2);
           cpu.setPC(returnAddr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
         } else {
           cpu.increasePC(1);
         }
@@ -3224,7 +3105,6 @@ class InstructionSet extends CPU {
 
           cpu.increaseSP(2);
           cpu.setPC(returnAddr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
         } else {
           cpu.increasePC(1);
         }
@@ -3242,7 +3122,6 @@ class InstructionSet extends CPU {
 
           cpu.increaseSP(2);
           cpu.setPC(returnAddr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12);
         } else {
           cpu.increasePC(1);
         }
@@ -3251,10 +3130,13 @@ class InstructionSet extends CPU {
     this.opcodeList.set(
       0xc7,
       new Opcode("RST", "00H", 0xc7, 32, 1, true, (cpu) => {
+        const returnAddr = cpu.getPC() + 1; // RST is 1 byte instruction
+
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), (cpu.getPC() >> 8) & 0xff); // High byte
+        cpu.memory.writeByte(cpu.getSP(), (returnAddr >> 8) & 0xff); // High byte
         cpu.decreaseSP(1);
-        cpu.memory.writeByte(cpu.getSP(), cpu.getPC() & 0xff); // Low byte
+        cpu.memory.writeByte(cpu.getSP(), returnAddr & 0xff); // Low byte
+
         cpu.setPC(0x0000);
       })
     );
@@ -3732,15 +3614,15 @@ class InstructionSet extends CPU {
         cpu.setCFlag(msb);
       })
     );
-    this.cbOpcodeList.set(
+    this.opcodeList.set(
       0x0f,
-      new Opcode("RRC", "A", 0x0f, 8, 2, false, (cpu) => {
-        let a = cpu.getA();
-        let lsb = a & 1;
-        let result = ((a >> 1) | (lsb << 7)) & 0xff;
+      new Opcode("RRCA", "", 0x0f, 4, 1, false, (cpu) => {
+        const a = cpu.getA();
+        const lsb = a & 1;
+        const result = ((a >> 1) | (lsb << 7)) & 0xff;
 
         cpu.setA(result);
-        cpu.setZFlag(result === 0 ? 1 : 0);
+        cpu.setZFlag(0); // RRCA setzt Z-Flag immer auf 0
         cpu.setNFlag(0);
         cpu.setHFlag(0);
         cpu.setCFlag(lsb);
@@ -4446,7 +4328,7 @@ class InstructionSet extends CPU {
           cpu.memory.writeByte(cpu.getSP(), returnAddr & 0xff);
 
           cpu.setPC(addr);
-          cpu.setCPUCycle(cpu.getCPUCycle() + 12); // Total: 12 + 12 = 24 Zyklen
+          // Total: 12 + 12 = 24 Zyklen
         } else {
           cpu.increasePC(3);
           // Bleibt bei 12 Zyklen
@@ -4454,7 +4336,7 @@ class InstructionSet extends CPU {
       });
     this.opcodeList.set(
       0x1f,
-      new Opcode("RRA", "", 0x1f, 4, 1, false, (cpu) => {
+      new Opcode("RR", "A", 0x1f, 4, 1, false, (cpu) => {
         let a = cpu.getA();
         let oldCarry = cpu.getCFlag();
         let lsb = a & 1;

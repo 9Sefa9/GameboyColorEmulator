@@ -10,7 +10,7 @@ const LOG_FILE =
 
 // Middleware
 app.use(cors()); // CORS erlauben
-app.use(express.json({ limit: "500mb" }));
+app.use(express.json({ limit: "5000mb" }));
 app.use(express.static(path.join(__dirname, "public"))); // CSS/JS & andere statische Dateien
 
 // GET / → index.html ausliefern
