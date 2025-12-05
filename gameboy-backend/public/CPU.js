@@ -14,7 +14,6 @@ class CPU {
     this.MAX_CYCLES_PER_FRAME = 250000;
     this.isRunning = false;
     this.isPaused = false;
-    this.i = 0;
     //Flags
     // 7 6 5 4 3 2 1 0
     // Z N H C 0 0 0 0
@@ -61,9 +60,15 @@ class CPU {
     //Timer-Emulation
     this.divCounter = 0; // DIV Register counter
     this.timaCounter = 0; // TIMA Register counter
+    this.lyCounter = 0; // LY Register counter (for scanline timing)
     this.timerEnabled = false; // TAC Register bit 2
 
     this.memory = null;
+
+    //LCD Controller
+    this.lcd = null;
+    this.canvasId = "gameboy-screen";
+
     // Button Referenzen
     this.startBtn = document.getElementById("start");
     this.stopBtn = document.getElementById("stop");
@@ -99,7 +104,10 @@ class CPU {
         // define the onload event handler
         const arrayBuffer = e.target.result; // get the contents of the file as an ArrayBuffer
         const rom = new Uint8Array(arrayBuffer); // create a new Uint8Array from the ArrayBuffer
-        this.memory = new MBC1(rom, 0x8000);
+        this.memory = new MBC1(rom, 0);
+        this.lcd = new LCD(this.memory, this.canvasId);
+        // ✅ WICHTIG: Setze CPU Referenz in MBC1
+        this.memory.setCPU(this);
 
         // ✅ HIER DEN DEBUG-CODE EINFÜGEN:
         const originalWriteByte = this.memory.writeByte.bind(this.memory);
@@ -207,19 +215,39 @@ class CPU {
     this.setPC(0x0100);
     this.setSP(0xfffe);
 
+    // Flags
+    this.setIme(0);
+    this.setImeScheduled(0);
+    this.setIsHalted(false);
+    this.setStopMode(false);
+
+    if (this.lcd) {
+      this.lcd.reset();
+    }
+
+    // Timer
+    this.divCounter = 0;
+    this.timaCounter = 0;
+    this.lyCounter = 0;
+
     this.updateButtonStates();
   }
   updateTimers(cycles) {
-    // DIV Register (0xFF04) - incremented at 16384 Hz (256 cycles)
+    // 1. DIV Register (0xFF04) - incremented at 16384 Hz (256 cycles)
     this.divCounter += cycles;
     while (this.divCounter >= 256) {
       this.divCounter -= 256;
-      const div = this.memory.readByte(0xff04);
-      this.memory.writeByte(0xff04, (div + 1) & 0xff);
+      const div = this.memory.readByte(0xff04, this);
+      this.memory.writeByte(0xff04, (div + 1) & 0xff, this);
     }
 
-    // Timer enabled? (TAC register bit 2)
-    const tac = this.memory.readByte(0xff07);
+    // 2. Update LCD (this handles LY, STAT, etc.)
+    if (this.lcd) {
+      this.lcd.update(cycles);
+    }
+
+    // 3. Timer enabled? (TAC register bit 2)
+    const tac = this.memory.readByte(0xff07, this);
     this.timerEnabled = (tac & 0x04) !== 0;
 
     if (this.timerEnabled) {
@@ -230,101 +258,121 @@ class CPU {
       while (this.timaCounter >= frequency) {
         this.timaCounter -= frequency;
 
-        let tima = this.memory.readByte(0xff05) + 1;
+        let tima = this.memory.readByte(0xff05, this) + 1;
         if (tima > 0xff) {
-          tima = this.memory.readByte(0xff06); // Reload from TMA
+          tima = this.memory.readByte(0xff06, this); // Reload from TMA
 
           // Set timer interrupt flag in IF register
-          const ifReg = this.memory.readByte(0xff0f);
-          this.memory.writeByte(0xff0f, ifReg | 0x04);
+          const ifReg = this.memory.readByte(0xff0f, this);
+          this.memory.writeByte(0xff0f, ifReg | 0x04, this);
         }
-        this.memory.writeByte(0xff05, tima);
+        this.memory.writeByte(0xff05, tima, this);
       }
     }
   }
 
- loop() {
-  if (!this.isRunning || this.isPaused) return;
+  loop() {
+    if (!this.isRunning || this.isPaused) return;
 
-  let cyclesThisFrame = 0;
+    let cyclesThisFrame = 0;
 
-  while (cyclesThisFrame < this.MAX_CYCLES_PER_FRAME && this.isRunning && !this.isPaused) {
-    this.i = this.i + 1;
-    if (this.i > 7000000) break;
+    while (
+      cyclesThisFrame < this.MAX_CYCLES_PER_FRAME &&
+      this.isRunning &&
+      !this.isPaused
+    ) {
 
-    this.wait();
+      this.wait();
+      // this.logState();
 
-    // 🚨 INTERRUPTS ZUERST prüfen
-    this.handleInterrupts();
+      // if (this.getPC() === 0xc7f3) {
+      //   if (this.lcd) {
+      //     this.lcd.setLYForTest(0x90);
+      //   } else {
+      //     // Fallback: Direkt in Memory schreiben
+      //     this.memory.writeByte(0xff44, 0x90, this);
+      //   }
+      // }
 
-    // HALT Bug behandeln
-    if (this.haltBug) {
-      this.haltBug = false;
-      this.isHalted = false;
-      console.log("🐛 HALT Bug - executing instruction without PC increment");
-    }
+      // 🚨 INTERRUPTS ZUERST prüfen
+      this.handleInterrupts();
 
-    // HALT/STOP Mode Behandlung
-    if (this.isHalted || this.stopMode) {
-      const IE = this.memory.readByte(0xffff);
-      const IF = this.memory.readByte(0xff0f);
-      const pendingInterrupts = IE & IF & 0x1f;
-
-      if (pendingInterrupts) {
-        console.log(`🛑 STOP/HALT exit: pending interrupts 0x${pendingInterrupts.toString(16)}`);
+      // HALT Bug behandeln
+      if (this.haltBug) {
+        this.haltBug = false;
         this.isHalted = false;
-        this.stopMode = false;
-
-        // HALT Bug: Wenn IME=0 und HALT mode, dann HALT Bug
-        if (this.ime === 0) {
-          this.haltBug = true;
-        }
+        console.log("🐛 HALT Bug - executing instruction without PC increment");
       }
 
-      // Wenn immer noch im HALT/STOP, nur Zyklus verbrauchen und weiter
+      // HALT/STOP Mode Behandlung
       if (this.isHalted || this.stopMode) {
-        this.increaseCPUCycle(4);
-        cyclesThisFrame += 4;
-        this.updateTimers(4);
+        const IE = this.memory.readByte(0xffff, this);
+        const IF = this.memory.readByte(0xff0f, this);
+        const pendingInterrupts = IE & IF & 0x1f;
+
+        if (pendingInterrupts) {
+          console.log(
+            `🛑 STOP/HALT exit: pending interrupts 0x${pendingInterrupts.toString(
+              16
+            )}`
+          );
+          this.isHalted = false;
+          this.stopMode = false;
+
+          // HALT Bug: Wenn IME=0 und HALT mode, dann HALT Bug
+          if (this.ime === 0) {
+            this.haltBug = true;
+          }
+        }
+
+        // Wenn immer noch im HALT/STOP, nur Zyklus verbrauchen und weiter
+        if (this.isHalted || this.stopMode) {
+          this.increaseCPUCycle(4);
+          cyclesThisFrame += 4;
+          this.updateTimers(4);
+          continue;
+        }
+
+        // 🚨 WICHTIG: Wenn wir aus STOP/HALT rauskommen, führen wir KEINE normale Instruction aus!
+        // Wir springen direkt zur nächsten Iteration
         continue;
       }
-      
-      // 🚨 WICHTIG: Wenn wir aus STOP/HALT rauskommen, führen wir KEINE normale Instruction aus!
-      // Wir springen direkt zur nächsten Iteration
-      continue;
+
+      // Normale Instruktionsausführung (nur wenn NICHT im HALT/STOP)
+      const opcode = this.fetch();
+      const instruction = this.decode(opcode);
+
+      // // Debug output für kritische Bereiche
+      // if (this.getPC() >= 0xc2b0 && this.getPC() <= 0xc2d0) {
+      //   console.log(
+      //     `🔍 Executing: ${instruction.getInstruction()} at PC=0x${this.getPC().toString(
+      //       16
+      //     )}`
+      //   );
+      // }
+
+      this.execute(instruction);
+
+      // IME handling
+      if (this.imeScheduled) {
+        this.ime = 1;
+        this.imeScheduled = 0;
+      }
+
+      // PC erhöhen (wenn nicht schon von Instruction gehandled)
+      if (!instruction.getHandlesPC()) {
+        this.increasePC(instruction.getLen());
+      }
+
+      // Timer updates
+      this.updateTimers(instruction.getOpcodeCycle());
+      cyclesThisFrame += instruction.getOpcodeCycle();
     }
 
-    // Normale Instruktionsausführung (nur wenn NICHT im HALT/STOP)
-    const opcode = this.fetch();
-    const instruction = this.decode(opcode);
-    
-    // Debug output für kritische Bereiche
-    if (this.getPC() >= 0xc2b0 && this.getPC() <= 0xc2d0) {
-      console.log(`🔍 Executing: ${instruction.getInstruction()} at PC=0x${this.getPC().toString(16)}`);
+    if (this.isRunning && !this.isPaused) {
+      this.raf = requestAnimationFrame(() => this.loop());
     }
-    
-    this.execute(instruction);
-
-    // IME handling
-    if (this.imeScheduled) {
-      this.ime = 1;
-      this.imeScheduled = 0;
-    }
-
-    // PC erhöhen (wenn nicht schon von Instruction gehandled)
-    if (!instruction.getHandlesPC()) {
-      this.increasePC(instruction.getLen());
-    }
-
-    // Timer updates
-    this.updateTimers(instruction.getOpcodeCycle());
-    cyclesThisFrame += instruction.getOpcodeCycle();
   }
-
-  if (this.isRunning && !this.isPaused) {
-    this.raf = requestAnimationFrame(() => this.loop());
-  }
-}
 
   debugInstructionFlow(pc, instruction) {
     if (pc >= 0xc2b0 && pc <= 0xc2d0) {
@@ -336,14 +384,14 @@ class CPU {
 
       // Zeige die nächsten Bytes
       console.log(
-        `   Next: ${this.memory.readByte(pc).toString(16)} ${this.memory
-          .readByte(pc + 1)
-          .toString(16)} ${this.memory.readByte(pc + 2).toString(16)}`
+        `   Next: ${this.memory.readByte(pc, this).toString(16)} ${this.memory
+          .readByte(pc + 1, this)
+          .toString(16)} ${this.memory.readByte(pc + 2, this).toString(16)}`
       );
 
       // Zeige Interrupt-Status
-      const IE = this.memory.readByte(0xffff);
-      const IF = this.memory.readByte(0xff0f);
+      const IE = this.memory.readByte(0xffff, this);
+      const IF = this.memory.readByte(0xff0f, this);
       console.log(
         `   IE=0x${IE.toString(16)} IF=0x${IF.toString(16)} Pending=0x${(
           IE &
@@ -355,39 +403,47 @@ class CPU {
   }
 
   handleInterrupts() {
-  const IE = this.memory.readByte(0xffff);
-  const IF = this.memory.readByte(0xff0f);
-  const pendingInterrupts = IE & IF & 0x1f;
+    const IE = this.memory.readByte(0xffff, this);
+    const IF = this.memory.readByte(0xff0f, this);
+    const pendingInterrupts = IE & IF & 0x1f;
 
-  // Debug output
-  if (pendingInterrupts && (this.isHalted || this.stopMode)) {
-    console.log(`🔔 Interrupt pending during STOP/HALT: 0x${pendingInterrupts.toString(16)} IME=${this.ime} PC=0x${this.getPC().toString(16)}`);
-  }
+    // Debug output
+    if (pendingInterrupts && (this.isHalted || this.stopMode)) {
+      console.log(
+        `🔔 Interrupt pending during STOP/HALT: 0x${pendingInterrupts.toString(
+          16
+        )} IME=${this.ime} PC=0x${this.getPC().toString(16)}`
+      );
+    }
 
-  // Normale Interrupt-Ausführung (nur wenn IME enabled)
-  if (this.ime && pendingInterrupts && !this.isHalted && !this.stopMode) {
-    console.log(`🔔 Servicing interrupt: 0x${pendingInterrupts.toString(16)} at PC=0x${this.getPC().toString(16)}`);
-    this.ime = 0;
+    // Normale Interrupt-Ausführung (nur wenn IME enabled)
+    if (this.ime && pendingInterrupts && !this.isHalted && !this.stopMode) {
+      console.log(
+        `🔔 Servicing interrupt: 0x${pendingInterrupts.toString(
+          16
+        )} at PC=0x${this.getPC().toString(16)}`
+      );
+      this.ime = 0;
 
-    // Höchste Priorität Interrupt finden
-    let interruptBit = 0;
-    if (pendingInterrupts & 0x01) interruptBit = 0x01;      // VBlank
-    else if (pendingInterrupts & 0x02) interruptBit = 0x02; // LCD STAT
-    else if (pendingInterrupts & 0x04) interruptBit = 0x04; // Timer
-    else if (pendingInterrupts & 0x08) interruptBit = 0x08; // Serial
-    else if (pendingInterrupts & 0x10) interruptBit = 0x10; // Joypad
+      // Höchste Priorität Interrupt finden
+      let interruptBit = 0;
+      if (pendingInterrupts & 0x01) interruptBit = 0x01; // VBlank
+      else if (pendingInterrupts & 0x02) interruptBit = 0x02; // LCD STAT
+      else if (pendingInterrupts & 0x04) interruptBit = 0x04; // Timer
+      else if (pendingInterrupts & 0x08) interruptBit = 0x08; // Serial
+      else if (pendingInterrupts & 0x10) interruptBit = 0x10; // Joypad
 
-    if (interruptBit !== 0) {
-      this.serviceInterrupt(interruptBit);
-      this.increaseCPUCycle(20);
+      if (interruptBit !== 0) {
+        this.serviceInterrupt(interruptBit);
+        this.increaseCPUCycle(20);
+      }
     }
   }
-}
 
   serviceInterrupt(interruptBit) {
     // Clear the specific interrupt flag in IF register
-    const IF = this.memory.readByte(0xff0f);
-    this.memory.writeByte(0xff0f, IF & ~interruptBit);
+    const IF = this.memory.readByte(0xff0f, this);
+    this.memory.writeByte(0xff0f, IF & ~interruptBit, this);
 
     // Disable interrupts
     this.ime = 0;
@@ -397,10 +453,10 @@ class CPU {
 
     // Push return address onto stack (HIGH byte first, then LOW byte)
     this.decreaseSP(1);
-    this.memory.writeByte(this.getSP(), (returnAddr >> 8) & 0xff); // High byte
+    this.memory.writeByte(this.getSP(), (returnAddr >> 8) & 0xff, this); // High byte
 
     this.decreaseSP(1);
-    this.memory.writeByte(this.getSP(), returnAddr & 0xff); // Low byte
+    this.memory.writeByte(this.getSP(), returnAddr & 0xff, this); // Low byte
 
     // Jump to interrupt vector
     const vectors = {
@@ -426,10 +482,12 @@ class CPU {
       // Zeige die letzten Stack-Operationen
       console.log(
         `   Last opcodes: ${this.memory
-          .readByte(this.getPC() - 2)
+          .readByte(this.getPC() - 2, this)
           .toString(16)}, ${this.memory
-          .readByte(this.getPC() - 1)
-          .toString(16)}, ${this.memory.readByte(this.getPC()).toString(16)}`
+          .readByte(this.getPC() - 1, this)
+          .toString(16)}, ${this.memory
+          .readByte(this.getPC(), this)
+          .toString(16)}`
       );
 
       // Stack-Inhalt anzeigen
@@ -437,7 +495,7 @@ class CPU {
         const addr = (this.getSP() + i) & 0xffff;
         console.log(
           `   Stack[0x${addr.toString(16)}] = 0x${this.memory
-            .readByte(addr)
+            .readByte(addr, this)
             .toString(16)}`
         );
       }
@@ -476,25 +534,25 @@ class CPU {
       this.getPC().toString(16).padStart(4, "0").toUpperCase() +
       " PCMEM:" +
       this.memory
-        .readByte(this.getPC())
+        .readByte(this.getPC(), this)
         ?.toString(16)
         .padStart(2, "0")
         .toUpperCase() +
       "," +
       this.memory
-        .readByte(this.getPC() + 1)
+        .readByte(this.getPC() + 1, this)
         ?.toString(16)
         .padStart(2, "0")
         .toUpperCase() +
       "," +
       this.memory
-        .readByte(this.getPC() + 2)
+        .readByte(this.getPC() + 2, this)
         ?.toString(16)
         .padStart(2, "0")
         .toUpperCase() +
       "," +
       this.memory
-        .readByte(this.getPC() + 3)
+        .readByte(this.getPC() + 3, this)
         ?.toString(16)
         .padStart(2, "0")
         .toUpperCase() +
@@ -503,17 +561,17 @@ class CPU {
 
   //The instruction cycle consists of four phases: fetching an instruction from memory and
   fetch() {
-    let currentMemoryData = this.memory.readByte(this.getPC());
+    let currentMemoryData = this.memory.readByte(this.getPC(), this);
     // For Blargs CPU test ( without ppu )
-    if (this.memory.readByte(0xff02) === 0x81) {
-      let c = this.memory.readByte(0xff01);
+    if (this.memory.readByte(0xff02, this) === 0x81) {
+      let c = this.memory.readByte(0xff01, this);
       this.serialOutput.textContent += String.fromCharCode(c);
-      this.memory.writeByte(0xff02, 0x0);
+      this.memory.writeByte(0xff02, 0x00, this);
     }
 
     if (currentMemoryData === 0xcb) {
       this.cbModeActive = true;
-      currentMemoryData = this.memory.readByte(this.getPC() + 1);
+      currentMemoryData = this.memory.readByte(this.getPC() + 1, this);
     } else {
       this.cbModeActive = false;
     }
@@ -524,13 +582,10 @@ class CPU {
   decode(opcode) {
     if (this.cbModeActive) {
       this.cbModeActive = false;
-      const instruction = InstructionSet.getCBInstruction(opcode);
-      return instruction;
+      return InstructionSet.getCBInstruction(opcode);
     }
 
-    const instruction = InstructionSet.getInstruction(opcode);
-
-    return instruction;
+    return InstructionSet.getInstruction(opcode);
   }
   // Füge diese Methode zur CPU-Klasse hinzu
   debug16BitOperation(opcode, phase) {
@@ -568,7 +623,7 @@ class CPU {
   //and finally, instruction execution.
   execute(instruction) {
     // Debug für 16-Bit Operationen
-    const opcode = this.memory.readByte(this.getPC());
+    const opcode = this.memory.readByte(this.getPC(), this);
     const testOpcodes = [0x0b, 0x1b, 0x2b, 0x03, 0x13, 0x23, 0x09, 0x19, 0x29];
 
     // if (testOpcodes.includes(opcode)) {
@@ -592,18 +647,18 @@ class CPU {
   setTitle() {
     for (let i = 0x134; i <= 0x13e; i++) {
       document.getElementById("Title").textContent += String.fromCharCode(
-        this.memory.readByte(i)
+        this.memory.readByte(i, this)
       );
     }
   }
   setManufacturerCode() {
     for (let i = 0x13f; i <= 0x142; i++) {
       document.getElementById("ManufacturerCode").textContent +=
-        String.fromCharCode(this.memory.readByte(i));
+        String.fromCharCode(this.memory.readByte(i, this));
     }
   }
   setCGBFlag() {
-    const byte = this.memory.readByte(0x143);
+    const byte = this.memory.readByte(0x143, this);
     if (byte === 0x80) {
       document.getElementById("CGBFlag").textContent =
         "The game supports CGB enhancements, but is backwards compatible with monochrome Game Boys";
@@ -615,15 +670,17 @@ class CPU {
   setNewLicenseeCode() {
     for (let i = 0x144; i <= 0x145; i++) {
       document.getElementById("NewLicenseeCode").textContent +=
-        String.fromCharCode(this.memory.readByte(i));
+        String.fromCharCode(this.memory.readByte(i, this));
     }
   }
   setSGBflag() {
-    document.getElementById("SGBFlag").textContent =
-      this.memory.readByte(0x146);
+    document.getElementById("SGBFlag").textContent = this.memory.readByte(
+      0x146,
+      this
+    );
   }
   setCartridgeType() {
-    const byte = this.memory.readByte(0x147);
+    const byte = this.memory.readByte(0x147, this);
     let cartridgeType = "";
 
     switch (byte) {
@@ -748,7 +805,7 @@ class CPU {
   }
 
   setRomSize() {
-    const romSizeByte = this.memory.readByte(0x148);
+    const romSizeByte = this.memory.readByte(0x148, this);
     let romSize = 0;
 
     switch (romSizeByte) {
@@ -808,7 +865,7 @@ class CPU {
     document.getElementById("RomSize").textContent = romSize;
   }
   setRamSize() {
-    const sramSizeByte = this.memory.readByte(0x149);
+    const sramSizeByte = this.memory.readByte(0x149, this);
     let sramSize = "";
 
     switch (sramSizeByte) {
@@ -839,7 +896,7 @@ class CPU {
     document.getElementById("RamSize").textContent = sramSize;
   }
   setDestinationCode() {
-    const byte = this.memory.readByte(0x14a);
+    const byte = this.memory.readByte(0x14a, this);
     if (byte === 0x00) {
       document.getElementById("DestinationCode").textContent =
         "Japan (and possibly overseas)";
@@ -848,7 +905,7 @@ class CPU {
     }
   }
   setOldLicenseeCode() {
-    const byte = this.memory.readByte(0x14b);
+    const byte = this.memory.readByte(0x14b, this);
     let licenseeCode = "";
 
     switch (byte) {
@@ -1450,16 +1507,16 @@ class CPU {
 
   setMaskROMVersionNumber() {
     document.getElementById("MaskROMVersionNumber").textContent =
-      this.memory.readByte(0x14c);
+      this.memory.readByte(0x14c, this);
   }
   setHeaderChecksum() {
     let checksum = 0;
 
     for (let i = 0x134; i <= 0x14c; i++) {
-      checksum = checksum - this.memory.readByte(i) - 1;
+      checksum = checksum - this.memory.readByte(i, this) - 1;
     }
 
-    const headerChecksumByte = this.memory.readByte(0x14d);
+    const headerChecksumByte = this.memory.readByte(0x14d, this);
     const calculatedChecksum = checksum & 0xff;
 
     const checksumMatches = headerChecksumByte === calculatedChecksum;
